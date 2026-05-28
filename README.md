@@ -10,7 +10,7 @@
 | 항목 | 내용 |
 |------|------|
 | **팀명** | 구해조 (9haejo) |
-| **팀원** | 강현경, 박상준, 김하율 |
+| **멤버** | 강현경, 박상준, 김하율 |
 | **리포지토리** | [https://github.com/norandal/9haejo](https://github.com/norandal/9haejo) |
 | **과정** | KOI 2026 Spring (6주 개발) |
 | **트랙** | B 트랙 — 자체 AI·오픈소스 운영 |
