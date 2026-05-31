@@ -61,7 +61,55 @@ MAIN_MENU = {
     ], [
         {"text": "📈 브리핑", "callback_data": "/브리핑"},
         {"text": "✅ 구독", "callback_data": "/구독"},
+    ], [
+        {"text": "🔔 알림 설정", "callback_data": "/알림"},
+        {"text": "📋 관심종목", "callback_data": "/watchlist"},
     ]]
+}
+
+HELP_MENU = {
+    "inline_keyboard": [[
+        {"text": "📈 브리핑 커맨드", "callback_data": "__help_briefing"},
+        {"text": "🔍 종목 분석", "callback_data": "__help_stock"},
+    ], [
+        {"text": "📋 관심종목", "callback_data": "__help_watchlist"},
+        {"text": "🔔 알림", "callback_data": "__help_alert"},
+    ]]
+}
+
+HELP_TEXTS = {
+    "__help_briefing": (
+        "📈 <b>브리핑 커맨드</b>\n\n"
+        "/구독 — 매일 8시 자동 브리핑 구독\n"
+        "/구독취소 — 구독 해제\n"
+        "/브리핑 — 지금 즉시 AI 브리핑 (30초)\n"
+        "/시황 — 빠른 지수+환율+공포탐욕 현황\n"
+        "/뉴스 — 오늘의 월가 뉴스 한국어 요약"
+    ),
+    "__help_stock": (
+        "🔍 <b>종목 분석</b>\n\n"
+        "티커 입력: <code>NVDA</code> <code>TSLA</code> <code>AAPL</code>\n"
+        "한국어 입력: <code>엔비디아</code> <code>테슬라</code> <code>삼성전자</code>\n\n"
+        "/compare NVDA TSLA — 두 종목 비교\n"
+        "/sector 반도체 — 섹터 분석\n"
+        "(반도체/기술/에너지/금융/소비/통신)"
+    ),
+    "__help_watchlist": (
+        "📋 <b>관심종목</b>\n\n"
+        "/watchlist — 관심종목 현황 및 시세\n"
+        "/watchlist add NVDA — 추가\n"
+        "/watchlist remove NVDA — 삭제\n"
+        "/포트폴리오 — 관심종목 AI 진단\n\n"
+        "매일 아침 브리핑과 함께 관심종목 현황도 발송됩니다."
+    ),
+    "__help_alert": (
+        "🔔 <b>가격 알림</b>\n\n"
+        "/알림 NVDA 200 — NVDA $200 이상 시 알림\n"
+        "/알림 TSLA 150 하락 — TSLA $150 이하 시 알림\n"
+        "/알림 삭제 NVDA — 알림 삭제\n"
+        "/알림 — 현재 알림 목록\n\n"
+        "5분마다 가격 체크, 최대 5개 등록 가능"
+    ),
 }
 
 
@@ -72,9 +120,11 @@ def handle_update(update: dict):
         if cb:
             answer_callback(cb["id"])
             chat_id = str(cb["message"]["chat"]["id"])
-            text = cb.get("data", "").strip()
-            if text:
-                handle_update({"message": {"chat": {"id": chat_id}, "text": text}})
+            cb_data = cb.get("data", "").strip()
+            if cb_data in HELP_TEXTS:
+                send(chat_id, HELP_TEXTS[cb_data])
+            elif cb_data:
+                handle_update({"message": {"chat": {"id": chat_id}, "text": cb_data}})
             return
 
         msg = update.get("message") or update.get("edited_message")
@@ -102,26 +152,10 @@ def handle_update(update: dict):
 
         # ── /help ────────────────────────────────────
         elif cmd == "/help":
-            send(chat_id, (
-                "📖 <b>구해조 커맨드 목록</b>\n\n"
-                "<b>브리핑</b>\n"
-                "/구독 — 매일 8시 자동 브리핑 구독\n"
-                "/구독취소 — 구독 해제\n"
-                "/브리핑 — 전체 AI 브리핑 (5개 메시지)\n"
-                "/시황 — 빠른 지수 현황\n"
-                "/뉴스 — 오늘의 월가 뉴스 한국어 요약\n\n"
-                "<b>종목 분석</b>\n"
-                "NVDA, 테슬라, 삼성전자 등 입력\n\n"
-                "<b>관심종목</b>\n"
-                "/watchlist — 관심종목 현황\n"
-                "/watchlist add NVDA — 추가\n"
-                "/watchlist remove NVDA — 삭제\n"
-                "/포트폴리오 — 관심종목 AI 진단\n"
-                "/알림 NVDA 200 — 목표가 알림 등록\n\n"
-                "<b>섹터</b>\n"
-                "/sector 반도체 — 섹터 분석\n"
-                "(반도체/기술/에너지/금융/소비/통신)"
-            ))
+            send(chat_id,
+                "📖 <b>구해조 커맨드</b>\n\n카테고리를 선택해 자세한 사용법을 확인하세요:",
+                reply_markup=HELP_MENU
+            )
 
         # ── /구독 ────────────────────────────────────
         elif cmd in ["/구독", "/subscribe"]:
