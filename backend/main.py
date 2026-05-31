@@ -46,10 +46,37 @@ def run_summary_job():
     result = summarize(data)
     # 전체 구독자에게 발송
     from bot import send as tg_send
+    from collector import yf_quote
+    import json
+    from pathlib import Path
+
     subscribers = get_all()
-    for tweet in result["tweets"]:
-        for chat_id in subscribers:
+
+    # watchlist.json 로드
+    wl_path = Path(__file__).parent / "watchlists.json"
+    try:
+        wl_db = json.loads(wl_path.read_text(encoding="utf-8")) if wl_path.exists() else {}
+    except Exception:
+        wl_db = {}
+
+    for chat_id in subscribers:
+        # 브리핑 5개 메시지 전송
+        for tweet in result["tweets"]:
             tg_send(chat_id, tweet)
+        # 관심종목 현황 추가 전송
+        user_wl = wl_db.get(chat_id, [])
+        if user_wl:
+            lines = [f"<b>📋 내 관심종목 오늘 현황</b> ({len(user_wl)}개)\n"]
+            for sym in user_wl[:6]:
+                q = yf_quote(sym)
+                if q:
+                    arrow = "▲" if q["change_pct"] >= 0 else "▼"
+                    sign = "+" if q["change_pct"] >= 0 else ""
+                    lines.append(f"{sym}: ${q['price']:,.2f} {arrow}{sign}{q['change_pct']:.2f}%")
+                else:
+                    lines.append(f"{sym}: 조회 실패")
+            tg_send(chat_id, "\n".join(lines))
+
     # 메인 채널에도 발송
     url = post_summary(result["tweets"])
     _last_summary = {
@@ -163,6 +190,43 @@ def preview_summary():
     data = collect_all()
     result = summarize(data)
     return {"date": data["date"], "tweets": result["tweets"], "fear_greed": data.get("fear_greed")}
+
+
+@app.get("/admin/stats")
+def admin_stats():
+    """관리자용 통계 (인증 없음 - 내부용)"""
+    from alerts import get_all_alerts
+    from pathlib import Path
+    import json
+
+    all_alerts = get_all_alerts()
+    total_alerts = sum(len(v) for v in all_alerts.values())
+
+    wl_path = Path(__file__).parent / "watchlists.json"
+    try:
+        wl_db = json.loads(wl_path.read_text(encoding="utf-8")) if wl_path.exists() else {}
+    except Exception:
+        wl_db = {}
+    total_watchlist_items = sum(len(v) for v in wl_db.values())
+
+    next_briefing = None
+    try:
+        job = _scheduler.get_job("daily_briefing")
+        if job and job.next_run_time:
+            next_briefing = job.next_run_time.isoformat()
+    except Exception:
+        pass
+
+    return {
+        "subscribers": count(),
+        "total_price_alerts": total_alerts,
+        "users_with_alerts": len(all_alerts),
+        "total_watchlist_items": total_watchlist_items,
+        "users_with_watchlist": len(wl_db),
+        "last_briefing_date": _last_summary.get("date"),
+        "next_briefing_utc": next_briefing,
+        "scheduler_running": _scheduler.running,
+    }
 
 
 @app.get("/market/live")
