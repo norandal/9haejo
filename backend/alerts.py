@@ -5,10 +5,11 @@ alerts.json에 사용자별 알림 저장, APScheduler로 매 5분 체크
 import json
 import logging
 from pathlib import Path
+from data_dir import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
-ALERTS_PATH = Path(__file__).parent / "alerts.json"
+ALERTS_PATH = DATA_DIR / "alerts.json"
 
 
 def _load() -> dict:

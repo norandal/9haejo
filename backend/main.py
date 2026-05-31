@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
+from data_dir import DATA_DIR
 from collector import collect_all
 from summarizer import summarize
 from telegram_poster import post_summary
@@ -48,12 +49,11 @@ def run_summary_job():
     from bot import send as tg_send
     from collector import yf_quote
     import json
-    from pathlib import Path
 
     subscribers = get_all()
 
     # watchlist.json 로드
-    wl_path = Path(__file__).parent / "watchlists.json"
+    wl_path = DATA_DIR / "watchlists.json"
     try:
         wl_db = json.loads(wl_path.read_text(encoding="utf-8")) if wl_path.exists() else {}
     except Exception:
@@ -316,7 +316,7 @@ def admin_stats():
     all_alerts = get_all_alerts()
     total_alerts = sum(len(v) for v in all_alerts.values())
 
-    wl_path = Path(__file__).parent / "watchlists.json"
+    wl_path = DATA_DIR / "watchlists.json"
     try:
         wl_db = json.loads(wl_path.read_text(encoding="utf-8")) if wl_path.exists() else {}
     except Exception:

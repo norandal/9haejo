@@ -7,10 +7,11 @@ import os
 import json
 import logging
 from pathlib import Path
+from data_dir import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path(__file__).parent / "subscribers.json"
+DB_PATH = DATA_DIR / "subscribers.json"
 
 
 def _load() -> list[str]:
