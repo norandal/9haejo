@@ -116,7 +116,8 @@ def handle_update(update: dict):
                 "/watchlist — 관심종목 현황\n"
                 "/watchlist add NVDA — 추가\n"
                 "/watchlist remove NVDA — 삭제\n"
-                "/포트폴리오 — 관심종목 AI 진단\n\n"
+                "/포트폴리오 — 관심종목 AI 진단\n"
+                "/알림 NVDA 200 — 목표가 알림 등록\n\n"
                 "<b>섹터</b>\n"
                 "/sector 반도체 — 섹터 분석\n"
                 "(반도체/기술/에너지/금융/소비/통신)"
@@ -184,6 +185,62 @@ def handle_update(update: dict):
             except Exception as e:
                 logger.error("market error: %s", e)
                 send(chat_id, "시장 데이터 조회 중 오류가 발생했어요.")
+
+        # ── /알림 ────────────────────────────────────────
+        elif cmd in ["/알림", "/alert"]:
+            parts = text.split()
+            from alerts import add_alert, remove_alert, get_alerts
+            from stock_analyzer import resolve_ticker
+
+            if len(parts) == 1:
+                # 현재 알림 목록
+                user_alerts = get_alerts(chat_id)
+                if not user_alerts:
+                    send(chat_id, (
+                        "📭 등록된 가격 알림이 없습니다.\n\n"
+                        "<b>알림 등록 방법:</b>\n"
+                        "/알림 NVDA 200 — NVDA가 $200 이상이 되면 알림\n"
+                        "/알림 TSLA 150 하락 — TSLA가 $150 이하 시 알림\n"
+                        "/알림 삭제 NVDA — NVDA 알림 삭제\n"
+                        "(최대 5개)"
+                    ))
+                else:
+                    lines = [f"🔔 <b>내 가격 알림</b> ({len(user_alerts)}개)\n"]
+                    for a in user_alerts:
+                        arrow = ">=" if a["direction"] == "above" else "<="
+                        lines.append(f"{a['ticker']} {arrow} ${a['target']:,.0f}")
+                    send(chat_id, "\n".join(lines))
+
+            elif len(parts) >= 3 and parts[1].lower() in ["삭제", "delete", "remove"]:
+                ticker = resolve_ticker(parts[2]) or parts[2].upper()
+                n = remove_alert(chat_id, ticker)
+                if n:
+                    send(chat_id, f"✅ {ticker} 알림을 삭제했습니다.")
+                else:
+                    send(chat_id, f"{ticker} 알림이 없습니다.")
+
+            elif len(parts) >= 3:
+                # /알림 NVDA 200 [하락]
+                ticker = resolve_ticker(parts[1]) or parts[1].upper()
+                try:
+                    target = float(parts[2].replace(",", ""))
+                except ValueError:
+                    send(chat_id, "가격을 숫자로 입력해주세요.\n예: /알림 NVDA 200")
+                    return
+                direction = "below" if len(parts) >= 4 and "하락" in parts[3] else "above"
+                ok = add_alert(chat_id, ticker, target, direction)
+                if ok:
+                    dir_text = "이하" if direction == "below" else "이상"
+                    send(chat_id, (
+                        f"✅ <b>알림 등록 완료!</b>\n\n"
+                        f"{ticker}이(가) ${target:,.0f} {dir_text}이 되면\n"
+                        f"즉시 텔레그램으로 알려드립니다.\n"
+                        f"(5분마다 체크)"
+                    ))
+                else:
+                    send(chat_id, "알림은 최대 5개까지 등록할 수 있습니다.\n/알림 삭제 NVDA 로 기존 알림을 삭제해주세요.")
+            else:
+                send(chat_id, "사용법: /알림 NVDA 200\n하락 알림: /알림 TSLA 150 하락")
 
         # ── /포트폴리오 ──────────────────────────────────
         elif cmd in ["/포트폴리오", "/portfolio"]:

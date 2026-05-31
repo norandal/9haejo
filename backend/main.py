@@ -67,8 +67,9 @@ _scheduler = BackgroundScheduler(timezone=pytz.utc)
 
 @app.on_event("startup")
 def startup_scheduler():
-    kst = pytz.timezone("Asia/Seoul")
-    # KST 08:00 = UTC 23:00 (전날)
+    from alerts import check_and_fire_alerts
+    from apscheduler.triggers.interval import IntervalTrigger
+    # KST 08:00 = UTC 23:00
     _scheduler.add_job(
         run_summary_job,
         CronTrigger(hour=23, minute=0, timezone=pytz.utc),
@@ -76,8 +77,15 @@ def startup_scheduler():
         replace_existing=True,
         misfire_grace_time=300,
     )
+    # 가격 알림 체크: 매 5분
+    _scheduler.add_job(
+        check_and_fire_alerts,
+        IntervalTrigger(minutes=5),
+        id="price_alerts",
+        replace_existing=True,
+    )
     _scheduler.start()
-    logger.info("Scheduler started: daily briefing at KST 08:00 (UTC 23:00)")
+    logger.info("Scheduler started: daily_briefing + price_alerts every 5min")
 
 
 @app.on_event("shutdown")
