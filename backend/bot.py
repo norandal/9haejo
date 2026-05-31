@@ -6,13 +6,21 @@
 """
 
 import os
+import sys
 import logging
 import httpx
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
-logging.basicConfig(level=logging.INFO)
+# UTF-8 스트림 핸들러로 한글/이모지 로깅 보장
+_handler = logging.StreamHandler(stream=sys.stdout)
+_handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+try:
+    _handler.stream.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+logging.basicConfig(level=logging.INFO, handlers=[_handler])
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
