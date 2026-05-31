@@ -158,6 +158,7 @@ export default function Home() {
   const [briefingLoading, setBriefingLoading] = useState(true);
   const [subCount, setSubCount] = useState<number | null>(null);
   const [news, setNews] = useState<{ title: string; source: string; sentiment: string; url: string }[]>([]);
+  const [adminStats, setAdminStats] = useState<{ total_price_alerts?: number; total_watchlist_items?: number } | null>(null);
   const [marketData, setMarketData] = useState<{
     indices: Record<string, { price: number; change_pct: number }>;
     fx: Record<string, { price: number; change_pct: number }>;
@@ -200,6 +201,12 @@ export default function Home() {
     };
     loadMarket();
     marketRef.current = setInterval(loadMarket, 30000);
+
+    // 관리자 통계
+    fetch(`${API}/admin/stats`)
+      .then(r => r.json())
+      .then(d => setAdminStats(d))
+      .catch(() => {});
 
     // 뉴스
     fetch(`${API}/news/latest`)
@@ -288,9 +295,9 @@ export default function Home() {
           {/* 지표 */}
           <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
             <StatCard value={subCount !== null ? `${animatedCount}명` : "-"} label="구독자" sub="실시간" />
-            <StatCard value="200+" label="분석 데이터" sub="매일 수집" />
+            <StatCard value={adminStats?.total_watchlist_items != null ? `${adminStats.total_watchlist_items}개` : "200+"} label="관심종목 등록" sub="누적" />
+            <StatCard value={adminStats?.total_price_alerts != null ? `${adminStats.total_price_alerts}개` : "0"} label="가격 알림" sub="활성" />
             <StatCard value="08:00" label="발송 시각" sub="KST 매일" />
-            <StatCard value="무료" label="요금" sub="완전 무료" />
           </div>
         </div>
       </section>
