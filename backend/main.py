@@ -9,9 +9,15 @@ if sys.stderr.encoding != "utf-8":
     except: pass
 
 import json
+import logging
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+import pytz
+
+logger = logging.getLogger(__name__)
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
@@ -21,7 +27,7 @@ from telegram_poster import post_summary
 from bot import router as bot_router
 from subscribers import subscribe, unsubscribe, get_all, count
 
-app = FastAPI(title="9haejo API", version="2.0.0")
+app = FastAPI(title="9haejo API", version="3.0.0")
 app.include_router(bot_router)
 
 app.add_middleware(
@@ -55,9 +61,33 @@ def run_summary_job():
     return _last_summary
 
 
+# ── APScheduler: 매일 KST 08:00 브리핑 자동 발송 ────────────────────────
+_scheduler = BackgroundScheduler(timezone=pytz.utc)
+
+
+@app.on_event("startup")
+def startup_scheduler():
+    kst = pytz.timezone("Asia/Seoul")
+    # KST 08:00 = UTC 23:00 (전날)
+    _scheduler.add_job(
+        run_summary_job,
+        CronTrigger(hour=23, minute=0, timezone=pytz.utc),
+        id="daily_briefing",
+        replace_existing=True,
+        misfire_grace_time=300,
+    )
+    _scheduler.start()
+    logger.info("Scheduler started: daily briefing at KST 08:00 (UTC 23:00)")
+
+
+@app.on_event("shutdown")
+def shutdown_scheduler():
+    _scheduler.shutdown(wait=False)
+
+
 @app.get("/")
 def root():
-    return {"status": "ok", "service": "9haejo", "version": "2.0.0", "subscribers": count()}
+    return {"status": "ok", "service": "9haejo", "version": "3.0.0", "subscribers": count()}
 
 
 @app.get("/health")
