@@ -1,143 +1,106 @@
 """
-Claude AI 요약 모듈
-수집된 시장 데이터를 X 스레드 포맷으로 요약
+AI 브리핑 요약 모듈 v2
+5-파트 구조화 브리핑: 시장요약 / 섹터 / 주목종목 / 한국영향 / 내일전망
 """
 
 import os
+import logging
 import anthropic
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
+logger = logging.getLogger(__name__)
+
+
 def get_client():
     return anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 
-def format_change(change_pct: float) -> str:
-    if change_pct is None:
+def fmt_pct(val):
+    if val is None:
         return "N/A"
-    arrow = "▲" if change_pct >= 0 else "▼"
-    return f"{arrow}{abs(change_pct):.2f}%"
-
-
-def build_data_summary(data: dict) -> str:
-    """Claude에 넘길 데이터 요약 텍스트 생성"""
-    lines = []
-
-    # 지수
-    lines.append("=== 미국 주요 지수 ===")
-    for name, d in data["indices"].items():
-        if name == "VIX":
-            continue
-        lines.append(f"{name}: {format_change(d.get('change_pct'))} ({d.get('price', 'N/A')})")
-    vix = data["indices"].get("VIX", {})
-    lines.append(f"VIX(공포지수): {vix.get('price', 'N/A')} ({format_change(vix.get('change_pct'))})")
-
-    # 섹터
-    lines.append("\n=== 섹터별 등락 ===")
-    for name, d in data["sectors"].items():
-        lines.append(f"{name}: {format_change(d.get('change_pct'))}")
-
-    # 대형주
-    lines.append("\n=== 미국 대형주 ===")
-    for name, d in data["big_stocks"].items():
-        lines.append(f"{name}({d.get('price', 'N/A')}달러): {format_change(d.get('change_pct'))}")
-
-    # 환율
-    lines.append("\n=== 환율 ===")
-    for name, d in data["fx"].items():
-        lines.append(f"{name}: {d.get('price', 'N/A')} ({format_change(d.get('change_pct'))})")
-
-    # 뉴스
-    if data.get("news"):
-        lines.append("\n=== 주요 뉴스 ===")
-        for n in data["news"]:
-            lines.append(f"- {n['title']} ({n['source']}) | {n['url']}")
-
-    return "\n".join(lines)
+    arrow = "+" if val >= 0 else ""
+    return f"{arrow}{val:.2f}%"
 
 
 def summarize(data: dict) -> dict:
-    """Claude로 시장 요약 생성 → X 스레드 4개 반환"""
+    indices = data.get("indices", {})
+    sectors = data.get("sectors", {})
+    stocks  = data.get("big_stocks", {})
+    fx      = data.get("fx", {})
+    news    = data.get("news", [])
+    fg      = data.get("fear_greed", {})
+    date    = data.get("date_display", data.get("date", ""))
 
-    data_text = build_data_summary(data)
-    date = data.get("date", "")
+    idx_lines = "\n".join(
+        f"  {k}: {fmt_pct(v.get('change_pct'))} (${v.get('price','N/A')})"
+        for k, v in indices.items()
+    )
+    sec_lines = "\n".join(
+        f"  {k}: {fmt_pct(v.get('change_pct'))}"
+        for k, v in sectors.items()
+    )
+    stk_lines = "\n".join(
+        f"  {k}: {fmt_pct(v.get('change_pct'))} @ ${v.get('price','N/A')}"
+        for k, v in stocks.items()
+    )
+    krw = fx.get("USD/KRW", {}).get("price", "N/A")
+    jpy = fx.get("USD/JPY", {}).get("price", "N/A")
+    news_text = "\n".join(
+        f"  [{n.get('sentiment','?')}] {n.get('title','')[:80]}"
+        for n in news[:5]
+    )
+    fg_score = fg.get("score", "N/A")
+    fg_label = fg.get("rating", "N/A")
 
-    prompt = f"""
-당신은 금융 시장 분석 전문가입니다. 아래 미국 시장 데이터를 바탕으로 한국 투자자를 위한 X(트위터) 스레드를 작성해주세요.
+    prompt = f"""You are a financial analyst writing a daily market briefing for Korean retail investors.
+Date: {date}
 
-[시장 데이터]
-{data_text}
+MARKET DATA:
+Indices:
+{idx_lines}
 
-[작성 규칙]
-- 총 4개의 트윗으로 구성된 스레드
-- 각 트윗은 280자(한글 기준 140자) 이내
-- 이모지 적극 활용
-- 한국어로 작성
-- 뉴스에 링크가 있으면 반드시 포함
-- 숫자는 정확하게 데이터 그대로 사용
+Sectors (ETF change%):
+{sec_lines}
 
-[스레드 구성]
-트윗1: 제목 + 지수 + 환율 + 한국 시장 영향 한줄 요약
-트윗2: 섹터별 등락 + 주목할 섹터 코멘트
-트윗3: 주요 대형주 등락 + 간밤 핵심 이슈/뉴스 (링크 포함)
-트윗4: 오늘 주목할 포인트 + 한국 투자자를 위한 한줄 결론
+Key US Stocks:
+{stk_lines}
 
-[출력 형식] 반드시 아래 형식으로만 출력하세요:
-TWEET1:
-(내용)
+FX: USD/KRW={krw} won, USD/JPY={jpy}
+Fear & Greed Index: {fg_score} ({fg_label})
 
-TWEET2:
-(내용)
+News:
+{news_text}
 
-TWEET3:
-(내용)
+Write EXACTLY 5 Telegram messages in Korean. Each is standalone. Use emojis and actual numbers.
+Separate each message with exactly: ---
 
-TWEET4:
-(내용)
-"""
+[1/5] Market Summary: Indices, overall direction, Fear&Greed
+[2/5] Sector Analysis: Best/worst ETF sectors, implications
+[3/5] Key Stocks: Notable movers with prices and % changes
+[4/5] Korea Impact: USD/KRW effect, which Korean stocks (Samsung/Hynix/etc) are affected
+[5/5] Tomorrow Outlook: What to watch, specific actionable advice for Korean investors
 
-    message = get_client().messages.create(
+Keep each message under 280 characters."""
+
+    client = get_client()
+    msg = client.messages.create(
         model="claude-opus-4-5",
-        max_tokens=2000,
+        max_tokens=2500,
         messages=[{"role": "user", "content": prompt}],
     )
+    raw = msg.content[0].text
+    tweets = [t.strip() for t in raw.split("---") if t.strip()][:5]
+    while len(tweets) < 5:
+        tweets.append(f"[{len(tweets)+1}/5] 분석 중...")
 
-    raw = message.content[0].text
-    tweets = parse_tweets(raw)
-
-    return {
-        "tweets": tweets,
-        "raw": raw,
-        "date": date,
-    }
-
-
-def parse_tweets(raw: str) -> list:
-    """Claude 응답에서 트윗 4개 파싱"""
-    tweets = []
-    for i in range(1, 5):
-        marker = f"TWEET{i}:"
-        next_marker = f"TWEET{i+1}:"
-        start = raw.find(marker)
-        if start == -1:
-            continue
-        start += len(marker)
-        end = raw.find(next_marker) if i < 4 else len(raw)
-        tweet = raw[start:end].strip()
-        tweets.append(tweet)
-    return tweets
+    return {"tweets": tweets, "raw": raw, "date": date}
 
 
 if __name__ == "__main__":
-    import json
     from collector import collect_all
-
     data = collect_all()
     result = summarize(data)
-
-    print("\n=== 생성된 X 스레드 ===\n")
-    for i, tweet in enumerate(result["tweets"], 1):
-        print(f"--- 트윗 {i} ---")
-        print(tweet)
-        print(f"(길이: {len(tweet)}자)\n")
+    for i, t in enumerate(result["tweets"], 1):
+        print(f"\n--- {i} ---\n{t}")
