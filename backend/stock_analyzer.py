@@ -479,3 +479,66 @@ Data:
     result = header + "<code>" + "\n".join(rows) + "</code>\n\n" + ai_text
     quote_cache.set("macro_analysis", result)
     return result
+
+
+def one_line_summary() -> str:
+    """오늘 시장 150자 한줄 요약"""
+    from cache import quote_cache
+    cached = quote_cache.get("one_line")
+    if cached:
+        return cached
+
+    import yfinance as yf
+    from datetime import date
+    try:
+        sp = yf.Ticker("^GSPC").history(period="2d")
+        nq = yf.Ticker("^IXIC").history(period="2d")
+        sp_pct = ((sp["Close"].iloc[-1] - sp["Close"].iloc[-2]) / sp["Close"].iloc[-2] * 100) if len(sp) >= 2 else 0
+        nq_pct = ((nq["Close"].iloc[-1] - nq["Close"].iloc[-2]) / nq["Close"].iloc[-2] * 100) if len(nq) >= 2 else 0
+        vix = yf.Ticker("^VIX").history(period="1d")["Close"].iloc[-1] if True else 20
+        sp_str = f"S&P500 {'+' if sp_pct>=0 else ''}{sp_pct:.1f}%"
+        nq_str = f"NASDAQ {'+' if nq_pct>=0 else ''}{nq_pct:.1f}%"
+        context = f"Date: {date.today()}, {sp_str}, {nq_str}, VIX: {vix:.1f}"
+    except Exception:
+        context = f"Date: {date.today()}"
+
+    prompt = (
+        f"Write a single Korean sentence (max 100 chars) summarizing today's US market for Korean investors. "
+        f"Start with an emoji. Include 1 key number. End with '내일 주목:' + one thing to watch.\n"
+        f"Data: {context}\nOutput ONLY the sentence, no explanation."
+    )
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    msg = client.messages.create(
+        model="claude-haiku-4-5", max_tokens=150,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    result = msg.content[0].text.strip()
+    quote_cache.set("one_line", result)
+    return result
+
+
+def weekly_summary() -> str:
+    """이번 주 시장 성적표"""
+    from cache import quote_cache
+    cached = quote_cache.get("weekly_summary")
+    if cached:
+        return cached
+
+    import yfinance as yf
+    symbols = {"S&P500": "^GSPC", "NASDAQ": "^IXIC", "DOW": "^DJI", "반도체(SMH)": "SMH", "빅테크(QQQ)": "QQQ"}
+    lines = ["<b>📅 이번 주 시장 성적표</b>\n"]
+    for name, sym in symbols.items():
+        try:
+            hist = yf.Ticker(sym).history(period="5d")
+            if len(hist) >= 2:
+                start = hist["Close"].iloc[0]
+                end = hist["Close"].iloc[-1]
+                pct = (end - start) / start * 100
+                sign = "+" if pct >= 0 else ""
+                arrow = "▲" if pct >= 0 else "▼"
+                lines.append(f"{name}: {arrow}{sign}{pct:.2f}%")
+        except Exception:
+            pass
+    result = "\n".join(lines)
+    quote_cache.set("weekly_summary", result)
+    return result

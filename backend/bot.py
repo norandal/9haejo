@@ -541,6 +541,33 @@ def handle_update(update: dict):
                 logger.error("ranking error: %s", e)
                 send(chat_id, "랭킹 조회 중 오류가 발생했어요.")
 
+        # ── /한줄 ────────────────────────────────────
+        elif cmd in ["/한줄", "/oneliner", "/요약"]:
+            send(chat_id, "✍️ 오늘 시장 한줄 요약 중...")
+            try:
+                from stock_analyzer import one_line_summary
+                result = one_line_summary()
+                share_markup = {
+                    "inline_keyboard": [[
+                        {"text": "공유하기", "url": "https://t.me/share/url?url=https%3A%2F%2F9haejo.vercel.app"},
+                    ]]
+                }
+                send(chat_id, result, reply_markup=share_markup)
+            except Exception as e:
+                logger.error("one_line error: %s", e)
+                send(chat_id, "한줄 요약 중 오류가 발생했어요.")
+
+        # ── /주간 ────────────────────────────────────
+        elif cmd in ["/주간", "/weekly"]:
+            send(chat_id, "📅 이번 주 성적표 조회 중...")
+            try:
+                from stock_analyzer import weekly_summary
+                result = weekly_summary()
+                send(chat_id, result)
+            except Exception as e:
+                logger.error("weekly error: %s", e)
+                send(chat_id, "주간 요약 중 오류가 발생했어요.")
+
         # ── /매크로 ──────────────────────────────────
         elif cmd in ["/매크로", "/macro"]:
             send(chat_id, "🌐 매크로 시황 분석 중...")
