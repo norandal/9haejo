@@ -137,6 +137,7 @@ def register_bot_commands():
         {"command": "매크로", "description": "금리/DXY/오일/VIX 매크로 시황"},
         {"command": "종목전망", "description": "종목 주간 전망 AI 분석 (예: /종목전망 NVDA)"},
         {"command": "랭킹", "description": "암호화폐/빅테크/코스피 시세 랭킹"},
+        {"command": "내통계", "description": "내 구독/관심종목/알림 현황 통계"},
     ]
     try:
         r = _httpx.post(
