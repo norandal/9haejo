@@ -283,3 +283,47 @@ News headlines:
     result = msg.content[0].text
     news_cache.set("news_summary", result)
     return result
+
+
+def analyze_portfolio(tickers: list[str]) -> str:
+    """관심종목 포트폴리오 AI 진단"""
+    if not tickers:
+        return "관심종목이 없습니다. /watchlist add NVDA 로 추가해주세요."
+
+    quotes = []
+    for t in tickers[:8]:  # max 8
+        q = fetch_quote(t)
+        if q:
+            quotes.append(q)
+
+    if not quotes:
+        return "종목 데이터 조회에 실패했습니다. 잠시 후 다시 시도해주세요."
+
+    lines = []
+    for q in quotes:
+        lines.append(
+            f"- {q['ticker']}: ${q['price']:.2f} ({'+' if q['change_pct']>=0 else ''}{q['change_pct']:.2f}%)"
+        )
+    portfolio_text = "\n".join(lines)
+
+    prompt = f"""You are a portfolio advisor for Korean retail investors.
+Analyze this watchlist portfolio and give actionable Korean-language advice.
+Be concise, friendly, use emojis. MAX 500 chars.
+
+Watchlist holdings:
+{portfolio_text}
+
+Format:
+[portfolio summary line]
+[overall performance assessment]
+[1-2 standout observations: best/worst performer, concentration risk]
+[1 actionable tip]
+[disclaimer in 1 line]"""
+
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    msg = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=700,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return msg.content[0].text
