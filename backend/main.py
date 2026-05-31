@@ -224,6 +224,22 @@ def run_summary(background_tasks: BackgroundTasks):
     return {"message": "브리핑 생성 시작. /summary/latest 에서 확인하세요."}
 
 
+@app.get("/summary/history")
+def get_briefing_history_list():
+    from briefing_history import get_all_dates
+    dates = get_all_dates()
+    return {"dates": dates}
+
+
+@app.get("/summary/history/{date}")
+def get_briefing_by_date(date: str):
+    from briefing_history import get_briefing
+    b = get_briefing(date)
+    if not b:
+        return {"error": "해당 날짜의 브리핑이 없습니다."}
+    return b
+
+
 @app.get("/summary/preview")
 def preview_summary():
     data = collect_all()

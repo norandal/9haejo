@@ -27,14 +27,17 @@ def save_briefing(date: str, tweets: list):
         logger.error("save_briefing error: %s", e)
 
 
-def get_briefing(date: str) -> list:
+def get_briefing(date: str) -> dict:
     if not HISTORY_PATH.exists():
-        return []
+        return {}
     try:
         data = json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
-        return data.get(date, [])
+        tweets = data.get(date)
+        if tweets is None:
+            return {}
+        return {"date": date, "tweets": tweets}
     except Exception:
-        return []
+        return {}
 
 
 def get_latest_briefing() -> tuple[str, list]:
@@ -49,6 +52,17 @@ def get_latest_briefing() -> tuple[str, list]:
         return latest, data[latest]
     except Exception:
         return "", []
+
+
+def get_all_dates() -> list:
+    """저장된 모든 날짜 목록 (최신순)"""
+    if not HISTORY_PATH.exists():
+        return []
+    try:
+        data = json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
+        return sorted(data.keys(), reverse=True)
+    except Exception:
+        return []
 
 
 def get_yesterday_briefing() -> tuple[str, list]:
