@@ -357,6 +357,24 @@ def news_latest():
     return {"news": news}
 
 
+@app.get("/stock/quote/{ticker}")
+def stock_quote(ticker: str):
+    """단일 종목 실시간 시세 + 기본 정보 (프론트 위젯용, 60초 캐시)"""
+    from cache import news_cache
+    from collector import yf_quote
+    ticker = ticker.upper().strip()
+    cache_key = f"quote:{ticker}"
+    cached = news_cache.get(cache_key)
+    if cached:
+        return cached
+    q = yf_quote(ticker)
+    if not q:
+        return {"error": "종목을 찾을 수 없습니다", "ticker": ticker}
+    result = {"ticker": ticker, **q}
+    news_cache.set(cache_key, result)
+    return result
+
+
 @app.get("/market/live")
 def market_live():
     """실시간 시장 데이터 (지수·환율·공포탐욕·빅테크) -- 프론트 위젯용"""
