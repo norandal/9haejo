@@ -187,6 +187,98 @@ function SkeletonCard() {
   );
 }
 
+const POPULAR_TICKERS = ["NVDA", "TSLA", "AAPL", "MSFT", "AMZN", "META", "GOOGL", "AVGO", "BTC-USD", "ETH-USD"];
+
+function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState<{ ticker: string; price: number; change_pct: number; change: number; volume: number } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const search = async (ticker: string) => {
+    if (!ticker.trim()) return;
+    const t = ticker.trim().toUpperCase();
+    setLoading(true);
+    setError("");
+    setResult(null);
+    try {
+      const r = await fetch(`${API}/stock/quote/${t}`);
+      const d = await r.json();
+      if (d.error) { setError(d.error); }
+      else { setResult(d); }
+    } catch {
+      setError("조회에 실패했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const up = result ? result.change_pct >= 0 : null;
+
+  return (
+    <section style={{ padding: "60px 24px", background: C.bg }}>
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        <p style={{ fontSize: 11, color: C.blue, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8, textAlign: "center" }}>STOCK LOOKUP</p>
+        <h2 style={{ fontSize: 28, fontWeight: 900, textAlign: "center", marginBottom: 8, color: C.text }}>종목 실시간 시세</h2>
+        <p style={{ color: C.muted, textAlign: "center", marginBottom: 28, fontSize: 14 }}>티커를 입력하면 실시간 가격을 조회합니다</p>
+
+        {/* Search bar */}
+        <form onSubmit={(e) => { e.preventDefault(); search(query); }} style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value.toUpperCase())}
+            placeholder="NVDA, TSLA, AAPL..."
+            style={{
+              flex: 1, padding: "14px 18px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`,
+              color: C.text, fontSize: 16, fontFamily: "monospace", fontWeight: 700, outline: "none",
+            }}
+          />
+          <button type="submit" disabled={loading} style={{
+            padding: "14px 24px", borderRadius: 12, background: C.grad, color: "#07070f",
+            fontWeight: 800, fontSize: 14, border: "none", cursor: loading ? "wait" : "pointer",
+          }}>
+            {loading ? "..." : "조회"}
+          </button>
+        </form>
+
+        {/* Popular tickers */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 24 }}>
+          {POPULAR_TICKERS.map(t => (
+            <button key={t} onClick={() => { setQuery(t); search(t); }} style={{
+              padding: "4px 10px", borderRadius: 6, background: C.card, border: `1px solid ${C.border}`,
+              color: C.muted, fontSize: 11, fontFamily: "monospace", cursor: "pointer", fontWeight: 600,
+            }}>{t}</button>
+          ))}
+        </div>
+
+        {/* Result */}
+        {error && <div style={{ padding: 16, borderRadius: 12, background: `${C.red}10`, border: `1px solid ${C.red}30`, color: C.red, fontSize: 14 }}>{error}</div>}
+        {result && (
+          <div style={{ padding: "24px", borderRadius: 16, background: C.card, border: `2px solid ${up ? `${C.green}40` : `${C.red}40`}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>{result.ticker}</div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>거래량: {result.volume?.toLocaleString()}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 36, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>
+                  ${result.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: up ? C.green : C.red }}>
+                  {up ? "▲" : "▼"} {up ? "+" : ""}{result.change.toFixed(2)} ({up ? "+" : ""}{result.change_pct.toFixed(2)}%)
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 10, background: "#08081a", fontSize: 13, color: C.muted }}>
+              💡 <span style={{ color: C.text }}>@goohaejo_bot</span> 에서 <code style={{ background: "#1a1a2e", padding: "2px 6px", borderRadius: 4, color: C.green }}>{result.ticker}</code> 를 입력하면 AI 분석 리포트를 받을 수 있습니다.
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   const [chatId, setChatId] = useState("");
   const [subState, setSubState] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -547,6 +639,9 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* STOCK SEARCH WIDGET */}
+      <StockSearchWidget isMobile={isMobile} />
 
       {/* NEWS SECTION */}
       {news.length > 0 && (
