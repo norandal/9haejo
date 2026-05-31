@@ -39,6 +39,29 @@ function useMarketSession() {
   return session;
 }
 
+function useNextBriefingCountdown() {
+  const [countdown, setCountdown] = useState("");
+  useEffect(() => {
+    const calc = () => {
+      const now = new Date();
+      // Next KST 08:00
+      const kst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+      const next = new Date(kst);
+      next.setHours(8, 0, 0, 0);
+      if (kst >= next) next.setDate(next.getDate() + 1);
+      const diff = next.getTime() - kst.getTime();
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setCountdown(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+    };
+    calc();
+    const id = setInterval(calc, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return countdown;
+}
+
 function useCountUp(target: number | null, duration = 1200) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
@@ -194,6 +217,7 @@ export default function Home() {
   const marketRef = useRef<NodeJS.Timeout | null>(null);
   const animatedCount = useCountUp(subCount);
   const marketSession = useMarketSession();
+  const nextBriefing = useNextBriefingCountdown();
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -370,6 +394,7 @@ export default function Home() {
             <StatCard value={adminStats?.total_watchlist_items != null ? `${adminStats.total_watchlist_items}개` : "200+"} label="관심종목 등록" sub="누적" />
             <StatCard value={adminStats?.total_price_alerts != null ? `${adminStats.total_price_alerts}개` : "0"} label="가격 알림" sub="활성" />
             <StatCard value="08:00" label="발송 시각" sub="KST 매일" />
+            {nextBriefing && <StatCard value={nextBriefing} label="다음 브리핑까지" sub="실시간 카운트다운" />}
           </div>
         </div>
       </section>
