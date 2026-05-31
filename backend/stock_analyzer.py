@@ -297,7 +297,8 @@ News:
         except Exception as e:
             return f"{ticker} 뉴스 조회 중 오류: {e}"
 
-    cached = news_cache.get("news_summary")
+    today_key = f"news_summary_{__import__('datetime').date.today().isoformat()}"
+    cached = news_cache.get(today_key)
     if cached:
         return cached
 
@@ -311,17 +312,21 @@ News:
         for item in news[:6]
     ])
 
-    prompt = f"""You are a Korean financial news summarizer for retail investors.
-Summarize these Wall Street news headlines in Korean for Korean retail investors.
-Use emojis. Keep each summary to 1-2 sentences. Include sentiment label.
-Write in friendly, clear Korean. MAX 600 chars total.
+    today_str = __import__('datetime').date.today().strftime('%m/%d')
+    prompt = f"""You are a Korean financial news analyst for retail investors.
+For each news item, write 1 concise Korean line + investment angle (호재/악재/중립).
+Then 1 final line on overall market mood.
+Use emojis. Korean only. Max 650 chars total.
 
 Format:
-[header with date/market context]
-[5 news items with emoji + one-line Korean summary + sentiment icon]
-[overall market mood in 1 line]
+<b>📰 {today_str} 월가 뉴스</b>
 
-News headlines:
+[emoji] [one-line Korean summary] — [호재/악재/중립]
+...
+---
+📊 종합: [overall mood sentence]
+
+News:
 {news_text}"""
 
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -331,7 +336,7 @@ News headlines:
         messages=[{"role": "user", "content": prompt}],
     )
     result = msg.content[0].text
-    news_cache.set("news_summary", result)
+    news_cache.set(today_key, result)
     return result
 
 
