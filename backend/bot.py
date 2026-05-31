@@ -206,6 +206,14 @@ def handle_update(update: dict):
                         sign = "+" if q["change_pct"] >= 0 else ""
                         lines.append(f"{name}: {q['price']:,.2f} {arrow}{sign}{q['change_pct']:.2f}%")
                 lines.append("")
+                lines.append("<b>한국 시장</b>")
+                for name, sym in [("KOSPI", "^KS11"), ("KOSDAQ", "^KQ11")]:
+                    q = yf_quote(sym)
+                    if q:
+                        arrow = "▲" if q["change_pct"] >= 0 else "▼"
+                        sign = "+" if q["change_pct"] >= 0 else ""
+                        lines.append(f"{name}: {q['price']:,.2f} {arrow}{sign}{q['change_pct']:.2f}%")
+                lines.append("")
                 lines.append("<b>환율</b>")
                 for name, sym in [("USD/KRW", "KRW=X"), ("USD/JPY", "JPY=X")]:
                     q = yf_quote(sym)
