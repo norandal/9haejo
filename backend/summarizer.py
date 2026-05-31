@@ -61,6 +61,21 @@ def summarize(data: dict) -> dict:
     best_sec  = sec_sorted[0] if sec_sorted else ("N/A", 0)
     worst_sec = sec_sorted[-1] if sec_sorted else ("N/A", 0)
 
+    # 섹터 이모지 바 차트
+    def emoji_bar(pct):
+        blocks = min(abs(int(pct // 0.3)), 8)
+        if pct >= 0:
+            return "▓" * blocks + "░" * (8 - blocks)
+        else:
+            return "░" * (8 - blocks) + "▓" * blocks
+
+    sec_bar_lines = []
+    for k, v in sorted(sec.items(), key=lambda x: x[1].get("change_pct", 0) or 0, reverse=True):
+        pct = v.get("change_pct", 0) or 0
+        arrow = "+" if pct >= 0 else ""
+        sec_bar_lines.append(f"{k[:4]} {emoji_bar(pct)} {arrow}{pct:.2f}%")
+    sec_bar = "\n".join(sec_bar_lines)
+
     # 주목 종목 (가장 많이 오른/내린)
     stk_sorted = sorted(
         [(k, v.get("change_pct", 0) or 0) for k, v in stk.items()],
@@ -111,9 +126,10 @@ Fear & Greed score with meaning
 One-line market mood summary
 
 Message 2 - [2/5] Sector Spotlight:
-Best and worst sector with exact %
-Which Korean stocks are affected (Samsung/Hynix for semiconductors, etc)
-Clear implication
+Include this sector performance bar (pre-formatted, copy exactly):
+{sec_bar}
+Best and worst sector with Korean impact
+Keep it compact
 
 Message 3 - [3/5] Big Tech Movers:
 Top gainer and loser with exact price and %
