@@ -408,14 +408,27 @@ def handle_update(update: dict):
 
         # ── /뉴스 ────────────────────────────────────
         elif cmd in ["/뉴스", "/news"]:
-            send(chat_id, "📰 오늘의 월가 뉴스 분석 중...")
-            try:
-                from stock_analyzer import summarize_news
-                result = summarize_news()
-                send(chat_id, result)
-            except Exception as e:
-                logger.error("news error: %s", e)
-                send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
+            parts = text.split()
+            stock_query = " ".join(parts[1:]) if len(parts) > 1 else ""
+            if stock_query:
+                from stock_analyzer import resolve_ticker, summarize_news
+                ticker = resolve_ticker(stock_query) or stock_query.upper()
+                send(chat_id, f"📰 {ticker} 관련 뉴스 분석 중...")
+                try:
+                    result = summarize_news(ticker)
+                    send(chat_id, result)
+                except Exception as e:
+                    logger.error("news error: %s", e)
+                    send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
+            else:
+                send(chat_id, "📰 오늘의 월가 뉴스 분석 중...")
+                try:
+                    from stock_analyzer import summarize_news
+                    result = summarize_news()
+                    send(chat_id, result)
+                except Exception as e:
+                    logger.error("news error: %s", e)
+                    send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
 
         # ── /sector ──────────────────────────────────
         elif cmd == "/sector":
@@ -451,35 +464,52 @@ def handle_update(update: dict):
                     send(chat_id, "전망 분석 중 오류가 발생했어요.")
 
         # ── /상승 /하락 ──────────────────────────────────
-        elif cmd in ["/상승", "/gainers"]:
-            send(chat_id, "📈 오늘 빅테크 상승 종목 조회 중...")
+        elif cmd in ["/상승", "/gainers", "/하락", "/losers"]:
+            is_up = cmd in ["/상승", "/gainers"]
+            parts = text.split()
+            sector_filter = " ".join(parts[1:]).lower() if len(parts) > 1 else ""
+            SECTOR_STOCKS = {
+                "tech": ["AAPL","MSFT","GOOGL","META","NVDA","AMD","INTC","QCOM","AVGO","TSM"],
+                "기술": ["AAPL","MSFT","GOOGL","META","NVDA","AMD","INTC","QCOM","AVGO","TSM"],
+                "반도체": ["NVDA","AMD","INTC","QCOM","AVGO","TSM","ASML","MU","AMAT","KLAC"],
+                "ai": ["NVDA","MSFT","GOOGL","META","AAPL","AMZN","CRM","PLTR","AI","SOUN"],
+                "ev": ["TSLA","RIVN","LCID","NIO","LI","XPEV","F","GM","STLA"],
+                "전기차": ["TSLA","RIVN","LCID","NIO","LI","XPEV","F","GM"],
+                "finance": ["JPM","GS","BAC","WFC","MS","BRK-B","V","MA","PYPL","SQ"],
+                "금융": ["JPM","GS","BAC","WFC","MS","BRK-B","V","MA","PYPL","SQ"],
+                "energy": ["XOM","CVX","COP","EOG","SLB","OXY","PSX","VLO","MPC","HAL"],
+                "에너지": ["XOM","CVX","COP","EOG","SLB","OXY"],
+                "crypto": ["COIN","MSTR","MARA","RIOT","CLSK","BTBT","HUT","IREN"],
+                "크립토": ["COIN","MSTR","MARA","RIOT","CLSK"],
+                "health": ["JNJ","UNH","PFE","ABBV","MRK","LLY","BMY","AMGN","GILD","ISRG"],
+                "바이오": ["LLY","ABBV","MRK","AMGN","GILD","ISRG","REGN","BIIB","MRNA"],
+            }
+            from collector import yf_quote, BIG_STOCKS
+            if sector_filter and sector_filter in SECTOR_STOCKS:
+                syms = SECTOR_STOCKS[sector_filter]
+                label = sector_filter.upper()
+                symbol_map = {s: s for s in syms}
+            else:
+                symbol_map = BIG_STOCKS
+                label = "빅테크"
+            emoji = "📈" if is_up else "📉"
+            send(chat_id, f"{emoji} {label} {'상승' if is_up else '하락'} 종목 조회 중...")
             try:
-                from collector import yf_quote, BIG_STOCKS
-                items = [(name, yf_quote(sym)) for name, sym in BIG_STOCKS.items()]
+                items = [(name, yf_quote(sym)) for name, sym in symbol_map.items()]
                 items = [(n, q) for n, q in items if q]
-                items.sort(key=lambda x: x[1]["change_pct"], reverse=True)
-                lines = ["<b>📈 오늘 상승 TOP 5</b>\n"]
-                for name, q in items[:5]:
+                items.sort(key=lambda x: x[1]["change_pct"], reverse=is_up)
+                only_direction = [x for x in items if (x[1]["change_pct"] >= 0) == is_up]
+                show = (only_direction or items)[:5]
+                arrow_label = "상승 TOP 5" if is_up else "하락 TOP 5"
+                lines = [f"<b>{emoji} {label} {arrow_label}</b>\n"]
+                for name, q in show:
                     sign = "+" if q["change_pct"] >= 0 else ""
                     lines.append(f"{name}: ${q['price']:,.2f} {sign}{q['change_pct']:.2f}%")
+                if sector_filter and sector_filter not in SECTOR_STOCKS:
+                    lines.append(f"\n<i>섹터 예시: /{'상승' if is_up else '하락'} 반도체 | tech | ai | ev | 금융 | 에너지</i>")
                 send(chat_id, "\n".join(lines))
             except Exception as e:
-                logger.error("gainers error: %s", e)
-                send(chat_id, "조회 중 오류가 발생했어요.")
-
-        elif cmd in ["/하락", "/losers"]:
-            send(chat_id, "📉 오늘 빅테크 하락 종목 조회 중...")
-            try:
-                from collector import yf_quote, BIG_STOCKS
-                items = [(name, yf_quote(sym)) for name, sym in BIG_STOCKS.items()]
-                items = [(n, q) for n, q in items if q]
-                items.sort(key=lambda x: x[1]["change_pct"])
-                lines = ["<b>📉 오늘 하락 TOP 5</b>\n"]
-                for name, q in items[:5]:
-                    lines.append(f"{name}: ${q['price']:,.2f} {q['change_pct']:.2f}%")
-                send(chat_id, "\n".join(lines))
-            except Exception as e:
-                logger.error("losers error: %s", e)
+                logger.error("gainers/losers error: %s", e)
                 send(chat_id, "조회 중 오류가 발생했어요.")
 
         # ── 종목 분석 (자유 텍스트) ──────────────────
