@@ -109,6 +109,7 @@ export default function Home() {
   const [chatId, setChatId] = useState("");
   const [subState, setSubState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [subMsg, setSubMsg] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
   const [briefing, setBriefing] = useState<string[]>([]);
   const [briefingLoading, setBriefingLoading] = useState(true);
   const [subCount, setSubCount] = useState<number | null>(null);
@@ -118,6 +119,13 @@ export default function Home() {
     fear_greed: { score: number; label_kr: string };
   } | null>(null);
   const marketRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     // 브리핑 미리보기
@@ -236,7 +244,7 @@ export default function Home() {
               <span style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3 }}>LIVE MARKET</span>
               <span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>30초마다 갱신</span>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 16 }}>
               {/* 지수 */}
               <div style={{ padding: "20px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}` }}>
                 <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 14 }}>US INDICES</p>
