@@ -88,11 +88,31 @@ def check_and_fire_alerts():
 
                 if triggered:
                     arrow = ">=" if direction == "above" else "<="
+                    pct = q.get("change_pct", 0) or 0
+                    sign = "+" if pct >= 0 else ""
+                    # AI 코멘트 생성 (haiku, fast)
+                    ai_comment = ""
+                    try:
+                        import os, anthropic as _ant
+                        _client = _ant.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+                        _prompt = (
+                            f"{alert['ticker']} just {'broke above' if direction=='above' else 'dropped below'} "
+                            f"${target:,.2f} (current: ${price:,.2f}, {sign}{pct:.2f}% today). "
+                            f"Give a 1-sentence Korean action advice for retail investors. MAX 80 chars. No emoji."
+                        )
+                        _msg = _client.messages.create(
+                            model="claude-haiku-4-5", max_tokens=100,
+                            messages=[{"role": "user", "content": _prompt}]
+                        )
+                        ai_comment = "\n\nAI: " + _msg.content[0].text.strip()
+                    except Exception:
+                        pass
                     msg = (
                         f"🔔 <b>가격 알림 발동!</b>\n\n"
-                        f"{alert['ticker']}: ${price:,.2f}\n"
-                        f"목표가 {arrow} ${target:,.2f} 도달\n\n"
-                        f"텔레그램 봇에서 분석: <code>{alert['ticker']}</code>"
+                        f"{alert['ticker']}: ${price:,.2f} ({sign}{pct:.2f}%)\n"
+                        f"목표가 {arrow} ${target:,.2f} 도달"
+                        f"{ai_comment}\n\n"
+                        f"더 자세한 분석: <code>{alert['ticker']}</code>"
                     )
                     send(chat_id, msg)
                     fired.append((chat_id, i))
