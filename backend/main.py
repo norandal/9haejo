@@ -92,7 +92,23 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "subscribers": count()}
+    from datetime import datetime
+    next_job = None
+    try:
+        job = _scheduler.get_job("daily_briefing")
+        if job and job.next_run_time:
+            next_job = job.next_run_time.isoformat()
+    except Exception:
+        pass
+    return {
+        "status": "healthy",
+        "version": "3.0.0",
+        "subscribers": count(),
+        "scheduler_running": _scheduler.running,
+        "next_briefing_utc": next_job,
+        "last_briefing_date": _last_summary.get("date"),
+        "uptime_check": datetime.utcnow().isoformat(),
+    }
 
 
 @app.post("/subscribe")

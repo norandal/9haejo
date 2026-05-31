@@ -16,6 +16,24 @@ const C = {
   grad: "linear-gradient(135deg,#00d97e 0%,#3b82f6 100%)",
 };
 
+function useCountUp(target: number | null, duration = 1200) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    if (target === null) return;
+    const start = Date.now();
+    const startVal = 0;
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(startVal + (target - startVal) * eased));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [target, duration]);
+  return display;
+}
+
 function StatCard({ value, label, sub }: { value: string; label: string; sub?: string }) {
   return (
     <div style={{ padding: "20px 24px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, textAlign: "center", flex: "1 1 140px" }}>
@@ -119,6 +137,7 @@ export default function Home() {
     fear_greed: { score: number; label_kr: string };
   } | null>(null);
   const marketRef = useRef<NodeJS.Timeout | null>(null);
+  const animatedCount = useCountUp(subCount);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -227,7 +246,7 @@ export default function Home() {
 
           {/* 지표 */}
           <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-            <StatCard value={subCount !== null ? `${subCount}명` : "-"} label="구독자" sub="실시간" />
+            <StatCard value={subCount !== null ? `${animatedCount}명` : "-"} label="구독자" sub="실시간" />
             <StatCard value="200+" label="분석 데이터" sub="매일 수집" />
             <StatCard value="08:00" label="발송 시각" sub="KST 매일" />
             <StatCard value="무료" label="요금" sub="완전 무료" />
