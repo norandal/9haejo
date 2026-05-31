@@ -430,6 +430,17 @@ def handle_update(update: dict):
                     logger.error("news error: %s", e)
                     send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
 
+        # ── /매크로 ──────────────────────────────────
+        elif cmd in ["/매크로", "/macro"]:
+            send(chat_id, "🌐 매크로 시황 분석 중...")
+            try:
+                from stock_analyzer import analyze_macro
+                result = analyze_macro()
+                send(chat_id, result)
+            except Exception as e:
+                logger.error("macro error: %s", e)
+                send(chat_id, "매크로 분석 중 오류가 발생했어요.")
+
         # ── /sector ──────────────────────────────────
         elif cmd == "/sector":
             parts = text.split()

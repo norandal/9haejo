@@ -118,6 +118,8 @@ def register_bot_commands():
         {"command": "구독", "description": "매일 8시 브리핑 구독"},
         {"command": "구독취소", "description": "구독 해제"},
         {"command": "지난브리핑", "description": "어제 브리핑 다시보기"},
+        {"command": "매크로", "description": "금리/DXY/오일/VIX 매크로 시황"},
+        {"command": "종목전망", "description": "종목 주간 전망 AI 분석 (예: /종목전망 NVDA)"},
     ]
     try:
         r = _httpx.post(
