@@ -80,7 +80,7 @@ from fastapi import APIRouter, Request
 
 router = APIRouter()
 
-@router.post(f"/webhook/{BOT_TOKEN}")
+@router.post("/webhook/telegram")
 async def webhook(request: Request):
     update = await request.json()
     handle_update(update)
