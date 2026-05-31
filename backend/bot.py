@@ -70,6 +70,9 @@ MAIN_MENU = {
     ], [
         {"text": "🌐 매크로", "callback_data": "/매크로"},
         {"text": "🪙 랭킹", "callback_data": "/랭킹"},
+    ], [
+        {"text": "📅 경제지표 캘린더", "callback_data": "/캘린더"},
+        {"text": "⚖️ 종목비교", "callback_data": "__help_stock"},
     ]]
 }
 
