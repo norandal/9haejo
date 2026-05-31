@@ -10,6 +10,9 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 from collector import collect_all
 from summarizer import summarize
 from telegram_poster import post_summary
+from bot import router as bot_router
+
+app.include_router(bot_router)
 
 app = FastAPI(title="9haejo API", version="0.1.0")
 
