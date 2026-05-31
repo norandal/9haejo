@@ -163,12 +163,13 @@ function FearGauge({ score, label }: { score: number; label: string }) {
   );
 }
 
-function IndexTicker({ name, data }: { name: string; data: { price: number; change_pct: number } | null }) {
+function IndexTicker({ name, data, sparkPrices }: { name: string; data: { price: number; change_pct: number } | null; sparkPrices?: number[] }) {
   if (!data) return null;
   const up = data.change_pct >= 0;
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 10, background: "#08081a", border: "1px solid #1a1a2e" }}>
       <span style={{ fontSize: 13, fontWeight: 700, color: "#e8e8f0" }}>{name}</span>
+      {sparkPrices && <MiniSparkline prices={sparkPrices} color={up ? "#00d97e" : "#ff4466"} />}
       <div style={{ textAlign: "right" }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: "#e8e8f0" }}>{data.price.toLocaleString()}</div>
         <div style={{ fontSize: 11, fontWeight: 700, color: up ? "#00d97e" : "#ff4466" }}>{up ? "+" : ""}{data.change_pct.toFixed(2)}%</div>
@@ -184,6 +185,23 @@ function SkeletonCard() {
       <div style={{ height: 10, width: "100%", borderRadius: 4, background: C.border, marginBottom: 8 }} />
       <div style={{ height: 10, width: "80%", borderRadius: 4, background: C.border }} />
     </div>
+  );
+}
+
+function MiniSparkline({ prices, color }: { prices: number[]; color: string }) {
+  if (!prices || prices.length < 2) return null;
+  const w = 80, h = 28;
+  const mn = Math.min(...prices), mx = Math.max(...prices);
+  const range = mx - mn || 1;
+  const pts = prices.map((p, i) => {
+    const x = (i / (prices.length - 1)) * w;
+    const y = h - ((p - mn) / range) * (h - 4) - 2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  return (
+    <svg width={w} height={h} style={{ display: "block" }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.8} />
+    </svg>
   );
 }
 
@@ -300,6 +318,7 @@ export default function Home() {
   const [historyDates, setHistoryDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [historyBriefing, setHistoryBriefing] = useState<{ [date: string]: string[] }>({});
+  const [sparklines, setSparklines] = useState<{ [ticker: string]: number[] }>({});
   const [marketData, setMarketData] = useState<{
     indices: Record<string, { price: number; change_pct: number }>;
     fx: Record<string, { price: number; change_pct: number }>;
@@ -357,6 +376,15 @@ export default function Home() {
       .then(r => r.json())
       .then(d => { if (d.news?.length) setNews(d.news.slice(0, 5)); })
       .catch(() => {});
+
+    // 지수 스파크라인 (7일 데이터)
+    const sparkTickers = { "S&P500": "^GSPC", "NASDAQ": "^IXIC", "NVDA": "NVDA", "TSLA": "TSLA" };
+    Object.entries(sparkTickers).forEach(([name, sym]) => {
+      fetch(`${API}/stock/history/${encodeURIComponent(sym)}?days=7`)
+        .then(r => r.json())
+        .then(d => { if (d.prices?.length) setSparklines(prev => ({ ...prev, [name]: d.prices })); })
+        .catch(() => {});
+    });
 
     // 브리핑 히스토리 날짜 목록
     fetch(`${API}/summary/history`)
@@ -507,7 +535,7 @@ export default function Home() {
                 <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 14 }}>US INDICES</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {Object.entries(marketData.indices).map(([name, d]) => (
-                    <IndexTicker key={name} name={name} data={d} />
+                    <IndexTicker key={name} name={name} data={d} sparkPrices={sparklines[name]} />
                   ))}
                 </div>
               </div>
