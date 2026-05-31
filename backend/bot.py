@@ -283,31 +283,75 @@ def handle_update(update: dict):
             send(chat_id, "⏳ 시장 현황 조회 중...")
             try:
                 from collector import yf_quote, collect_fear_greed
+                from concurrent.futures import ThreadPoolExecutor, as_completed
+
+                # 병렬 데이터 수집
+                index_syms = [("S&P500", "^GSPC"), ("NASDAQ", "^IXIC"), ("DOW", "^DJI"), ("VIX", "^VIX")]
+                kr_syms = [("KOSPI", "^KS11"), ("KOSDAQ", "^KQ11")]
+                fx_syms = [("USD/KRW", "KRW=X"), ("USD/JPY", "JPY=X")]
+                sector_syms = [
+                    ("반도체", "SOXX"), ("기술IT", "XLK"), ("금융", "XLF"),
+                    ("에너지", "XLE"), ("헬스케어", "XLV"), ("소비재", "XLY"),
+                    ("통신", "XLC"), ("유틸리티", "XLU"),
+                ]
+                all_syms = index_syms + kr_syms + fx_syms + sector_syms + [("FG", "FG")]
+                results = {}
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    def fetch(item):
+                        name, sym = item
+                        if sym == "FG":
+                            return name, collect_fear_greed()
+                        return name, yf_quote(sym)
+                    futures = {pool.submit(fetch, item): item for item in all_syms}
+                    for f in as_completed(futures):
+                        try:
+                            name, data = f.result()
+                            results[name] = data
+                        except Exception:
+                            pass
+
+                def fmt(name, q):
+                    if not q or not isinstance(q, dict) or "price" not in q:
+                        return f"{name}: --"
+                    arrow = "▲" if q["change_pct"] >= 0 else "▼"
+                    sign = "+" if q["change_pct"] >= 0 else ""
+                    return f"{name}: {q['price']:,.2f} {arrow}{sign}{q['change_pct']:.2f}%"
+
                 lines = ["<b>📊 미국 시장 현황</b>\n"]
-                for name, sym in [("S&P500", "^GSPC"), ("NASDAQ", "^IXIC"), ("DOW", "^DJI"), ("VIX", "^VIX")]:
-                    q = yf_quote(sym)
-                    if q:
-                        arrow = "▲" if q["change_pct"] >= 0 else "▼"
-                        sign = "+" if q["change_pct"] >= 0 else ""
-                        lines.append(f"{name}: {q['price']:,.2f} {arrow}{sign}{q['change_pct']:.2f}%")
-                lines.append("")
-                lines.append("<b>한국 시장</b>")
-                for name, sym in [("KOSPI", "^KS11"), ("KOSDAQ", "^KQ11")]:
-                    q = yf_quote(sym)
-                    if q:
-                        arrow = "▲" if q["change_pct"] >= 0 else "▼"
-                        sign = "+" if q["change_pct"] >= 0 else ""
-                        lines.append(f"{name}: {q['price']:,.2f} {arrow}{sign}{q['change_pct']:.2f}%")
-                lines.append("")
-                lines.append("<b>환율</b>")
-                for name, sym in [("USD/KRW", "KRW=X"), ("USD/JPY", "JPY=X")]:
-                    q = yf_quote(sym)
-                    if q:
-                        arrow = "▲" if q["change_pct"] >= 0 else "▼"
-                        sign = "+" if q["change_pct"] >= 0 else ""
-                        lines.append(f"{name}: {q['price']:,.2f} {arrow}{sign}{q['change_pct']:.2f}%")
-                fg = collect_fear_greed()
-                lines.append(f"\n<b>공포탐욕지수</b>: {fg['score']} ({fg['label_kr']})")
+                for name, _ in index_syms:
+                    lines.append(fmt(name, results.get(name)))
+
+                lines.append("\n<b>한국 시장</b>")
+                for name, _ in kr_syms:
+                    lines.append(fmt(name, results.get(name)))
+
+                lines.append("\n<b>환율</b>")
+                for name, _ in fx_syms:
+                    lines.append(fmt(name, results.get(name)))
+
+                fg = results.get("FG", {})
+                if fg:
+                    lines.append(f"\n<b>공포탐욕지수</b>: {fg.get('score','?')} ({fg.get('label_kr','?')})")
+
+                # 섹터 히트맵 (텍스트 블록 아트)
+                lines.append("\n<b>📊 섹터 히트맵</b>")
+                lines.append("<code>")
+                for name, _ in sector_syms:
+                    q = results.get(name)
+                    if q and isinstance(q, dict) and "change_pct" in q:
+                        pct = q["change_pct"]
+                        # 블록 수 (0~5)
+                        blocks = min(5, int(abs(pct) / 0.5) + 1) if abs(pct) > 0.05 else 1
+                        if pct >= 0:
+                            bar = "█" * blocks
+                            label = f"+{pct:.2f}%"
+                            lines.append(f"{name:<6} {bar:<5} {label}")
+                        else:
+                            bar = "░" * blocks
+                            label = f"{pct:.2f}%"
+                            lines.append(f"{name:<6} {bar:<5} {label}")
+                lines.append("</code>")
+
                 send(chat_id, "\n".join(lines))
             except Exception as e:
                 logger.error("market error: %s", e)
