@@ -113,28 +113,30 @@ News:
 {top_news}
 
 FORMAT RULES:
-- Start each message with its emoji category header
-- Use actual numbers, not vague language
-- Arrow symbols: use up-arrow for gains, down-arrow for losses (use actual Unicode arrows)
-- Each message MAX 300 characters
-- Write in Korean but use English for stock tickers
+- Start each message with emoji + bold header line
+- ALWAYS use exact numbers from data (never approximate)
+- Include arrows: up-arrow for gains, down-arrow for losses
+- Each message MAX 350 characters
+- Korean text, English tickers
+- Be specific: "NVDA +3.2% ($875)" not "NVDA rose"
+- Compare to recent context where possible
 
 Message 1 - [1/5] Market Overview:
-Header like "미국 증시 마감 {date}"
-S&P500 and NASDAQ with exact % and direction
-Fear & Greed score with meaning
-One-line market mood summary
+First line: "📊 미국 증시 {date} 마감" (bold)
+S&P500 exact %, NASDAQ exact % with absolute value
+Fear & Greed {fg_score} — interpret what it means for next day
+One punchy market mood sentence Korean investors care about
 
 Message 2 - [2/5] Sector Spotlight:
-Include this sector performance bar (pre-formatted, copy exactly):
+Include this sector bar (copy exactly):
 {sec_bar}
-Best and worst sector with Korean impact
-Keep it compact
+Best sector winner + why it matters for Korean stocks
+Worst sector + Korean stocks affected
 
 Message 3 - [3/5] Big Tech Movers:
-Top gainer and loser with exact price and %
-Notable moves worth watching
-Any earnings or news-driven moves
+Top gainer with exact price and % — why it moved (news/earnings if any)
+Top loser with exact price and % — what went wrong
+One other notable mover worth watching
 
 Message 4 - [4/5] Korea Market Preview:
 USD/KRW rate {krw}won - impact on Korean stocks
