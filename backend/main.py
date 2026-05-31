@@ -77,6 +77,10 @@ def run_summary_job():
                     lines.append(f"{sym}: 조회 실패")
             tg_send(chat_id, "\n".join(lines))
 
+    # 브리핑 히스토리 저장
+    from briefing_history import save_briefing
+    save_briefing(data["date"], result["tweets"])
+
     # 메인 채널에도 발송
     url = post_summary(result["tweets"])
     _last_summary = {

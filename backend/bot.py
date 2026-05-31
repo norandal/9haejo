@@ -277,6 +277,60 @@ def handle_update(update: dict):
                 send(chat_id, "사용법: /알림 NVDA 200\n하락 알림: /알림 TSLA 150 하락")
 
 
+
+
+        # ── /지난브리핑 ──────────────────────────────────
+        elif cmd in ["/지난브리핑", "/yesterday"]:
+            try:
+                from briefing_history import get_yesterday_briefing, get_latest_briefing
+                date, tweets = get_yesterday_briefing()
+                if not tweets:
+                    # 어제 없으면 가장 최근 것
+                    date, tweets = get_latest_briefing()
+                if not tweets:
+                    send(chat_id, "아직 저장된 브리핑이 없어요.
+/브리핑 으로 지금 브리핑을 받아보세요!")
+                else:
+                    send(chat_id, f"📅 <b>{date} 브리핑</b>")
+                    for tweet in tweets:
+                        send(chat_id, tweet)
+            except Exception as e:
+                logger.error("yesterday error: %s", e)
+                send(chat_id, "브리핑 히스토리 조회 중 오류가 발생했어요.")
+
+        # ── /환율 ────────────────────────────────────────
+        elif cmd in ["/환율", "/fx"]:
+            send(chat_id, "⏳ 환율 현황 조회 중...")
+            try:
+                from collector import yf_quote
+                import anthropic, os
+                lines = ["<b>💱 실시간 환율</b>
+"]
+                fx_pairs = [("USD/KRW", "KRW=X"), ("USD/JPY", "JPY=X"), ("USD/CNY", "CNY=X"), ("USD/EUR", "EURUSD=X")]
+                fx_data = {}
+                for name, sym in fx_pairs:
+                    q = yf_quote(sym)
+                    if q:
+                        arrow = "▲" if q["change_pct"] >= 0 else "▼"
+                        sign = "+" if q["change_pct"] >= 0 else ""
+                        lines.append(f"{name}: {q['price']:,.2f} {arrow}{sign}{q['change_pct']:.2f}%")
+                        fx_data[name] = q
+                send(chat_id, "
+".join(lines))
+                # AI 환율 전망
+                krw = fx_data.get("USD/KRW", {}).get("price", "N/A")
+                krw_pct = fx_data.get("USD/KRW", {}).get("change_pct", 0)
+                client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+                msg = client.messages.create(
+                    model="claude-haiku-4-5",
+                    max_tokens=300,
+                    messages=[{"role": "user", "content": f"USD/KRW is {krw} ({krw_pct:+.2f}%). Write a 2-3 sentence Korean-language FX impact analysis for Korean stock investors. Focus on KOSPI impact, import/export companies. Use emojis. MAX 200 chars."}],
+                )
+                send(chat_id, msg.content[0].text)
+            except Exception as e:
+                logger.error("fx error: %s", e)
+                send(chat_id, "환율 조회 중 오류가 발생했어요.")
+
         # ── /설정 ────────────────────────────────────────
         elif cmd in ["/설정", "/settings"]:
             from user_settings import get_settings, update_setting
