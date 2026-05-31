@@ -276,6 +276,34 @@ def handle_update(update: dict):
             else:
                 send(chat_id, "사용법: /알림 NVDA 200\n하락 알림: /알림 TSLA 150 하락")
 
+
+        # ── /설정 ────────────────────────────────────────
+        elif cmd in ["/설정", "/settings"]:
+            from user_settings import get_settings, update_setting
+            parts = text.split()
+            if len(parts) == 1:
+                s = get_settings(chat_id)
+                wl = "켜짐" if s.get("watchlist_briefing") else "꺼짐"
+                send(chat_id, (
+                    f"<b>내 설정</b>
+
+"
+                    f"관심종목 브리핑 포함: {wl}
+
+"
+                    "<b>변경하기:</b>
+"
+                    "/설정 관심종목 켜기
+"
+                    "/설정 관심종목 끄기"
+                ))
+            elif len(parts) >= 3 and "관심종목" in parts[1]:
+                on = parts[2] in ["켜기", "on", "true"]
+                update_setting(chat_id, "watchlist_briefing", on)
+                send(chat_id, f"관심종목 브리핑 포함: {'켜짐' if on else '꺼짐'} ✅")
+            else:
+                send(chat_id, "사용법: /설정 관심종목 켜기/끄기")
+
         # ── /포트폴리오 ──────────────────────────────────
         elif cmd in ["/포트폴리오", "/portfolio"]:
             try:
