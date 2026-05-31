@@ -572,6 +572,25 @@ def handle_update(update: dict):
                 logger.error("ranking error: %s", e)
                 send(chat_id, "랭킹 조회 중 오류가 발생했어요.")
 
+        # ── /차트 ────────────────────────────────────
+        elif cmd in ["/차트", "/chart"]:
+            parts = text.split()
+            if len(parts) < 2:
+                send(chat_id, "사용법: /차트 NVDA\n예: /차트 삼성전자 60 (60일)")
+            else:
+                query = parts[1]
+                days = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 30
+                days = max(7, min(90, days))
+                from stock_analyzer import resolve_ticker, get_price_chart
+                ticker = resolve_ticker(query) or query.upper()
+                send(chat_id, f"📊 {ticker} {days}일 차트 조회 중...")
+                try:
+                    result = get_price_chart(ticker, days)
+                    send(chat_id, result)
+                except Exception as e:
+                    logger.error("chart error: %s", e)
+                    send(chat_id, "차트 조회 중 오류가 발생했어요.")
+
         # ── /한줄 ────────────────────────────────────
         elif cmd in ["/한줄", "/oneliner", "/요약"]:
             send(chat_id, "✍️ 오늘 시장 한줄 요약 중...")
@@ -696,9 +715,17 @@ def handle_update(update: dict):
         else:
             send(chat_id, f"🔍 <b>{text}</b> 분석 중... (10~20초 소요)")
             try:
-                from stock_analyzer import analyze_stock
+                from stock_analyzer import analyze_stock, resolve_ticker, get_price_chart
                 result = analyze_stock(text)
                 send(chat_id, result)
+                # 스파크라인 차트 추가 전송
+                try:
+                    ticker = resolve_ticker(text) or text.upper()
+                    chart = get_price_chart(ticker, 14)
+                    if chart and "실패" not in chart:
+                        send(chat_id, chart)
+                except Exception:
+                    pass
             except Exception as e:
                 logger.error("stock analysis error: %s", e)
                 send(chat_id, (

@@ -542,3 +542,47 @@ def weekly_summary() -> str:
     result = "\n".join(lines)
     quote_cache.set("weekly_summary", result)
     return result
+
+
+def sparkline(prices: list) -> str:
+    """리스트를 스파크라인 문자열로 변환 (▁▂▃▄▅▆▇█)"""
+    if not prices or len(prices) < 2:
+        return ""
+    chars = "▁▂▃▄▅▆▇█"
+    mn, mx = min(prices), max(prices)
+    rng = mx - mn or 1
+    return "".join(chars[int((p - mn) / rng * 7)] for p in prices)
+
+
+def get_price_chart(ticker: str, days: int = 30) -> str:
+    """종목 가격 스파크라인 + 요약 통계"""
+    import yfinance as yf
+    from cache import quote_cache
+    cache_key = f"chart_{ticker}_{days}"
+    cached = quote_cache.get(cache_key)
+    if cached:
+        return cached
+    try:
+        hist = yf.Ticker(ticker).history(period=f"{days}d")
+        if hist.empty:
+            return f"{ticker} 차트 데이터 없음"
+        prices = [round(float(p), 2) for p in hist["Close"].tolist()]
+        spark = sparkline(prices)
+        start_price = prices[0]
+        end_price = prices[-1]
+        pct = (end_price - start_price) / start_price * 100
+        high = max(prices)
+        low = min(prices)
+        sign = "+" if pct >= 0 else ""
+        trend_arrow = "📈" if pct >= 0 else "📉"
+        result = (
+            f"{trend_arrow} <b>{ticker} {days}일 차트</b>\n\n"
+            f"<code>{spark}</code>\n\n"
+            f"현재: ${end_price:,.2f} ({sign}{pct:.2f}%)\n"
+            f"고가: ${high:,.2f} | 저가: ${low:,.2f}\n"
+            f"기간: {days}일"
+        )
+        quote_cache.set(cache_key, result)
+        return result
+    except Exception as e:
+        return f"{ticker} 차트 조회 실패: {e}"

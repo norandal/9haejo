@@ -106,17 +106,35 @@ def collect_fear_greed() -> dict:
 
 
 def collect_all() -> dict:
-    logger.info("=== Data collection start ===")
+    logger.info("=== Data collection start (parallel) ===")
     now = datetime.now()
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    indices  = collect_batch_yf(INDICES)
-    sectors  = collect_batch_yf(SECTORS)
-    stocks   = collect_batch_yf(BIG_STOCKS)
-    fx       = collect_batch_yf(FX)
+    tasks = {
+        "indices": lambda: collect_batch_yf(INDICES),
+        "sectors": lambda: collect_batch_yf(SECTORS),
+        "big_stocks": lambda: collect_batch_yf(BIG_STOCKS),
+        "fx": lambda: collect_batch_yf(FX),
+        "news": av_news_sentiment,
+        "fear_greed": collect_fear_greed,
+    }
+    results = {}
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(fn): key for key, fn in tasks.items()}
+        for future in as_completed(futures):
+            key = futures[future]
+            try:
+                results[key] = future.result()
+            except Exception as e:
+                logger.error("collect_all %s error: %s", key, e)
+                results[key] = {} if key not in ("news", "fear_greed") else []
 
-    # AV는 뉴스만 사용 (1회 호출)
-    news     = av_news_sentiment()
-    fear_greed = collect_fear_greed()
+    indices    = results.get("indices", {})
+    sectors    = results.get("sectors", {})
+    stocks     = results.get("big_stocks", {})
+    fx         = results.get("fx", {})
+    news       = results.get("news", [])
+    fear_greed = results.get("fear_greed", {})
 
     logger.info("=== Data collection done ===")
     return {
