@@ -150,8 +150,33 @@ def register_bot_commands():
         logger.warning("setMyCommands failed: %s", e)
 
 
+def register_webhook():
+    """Railway 시작시 텔레그램 웹훅 자동 등록"""
+    import httpx as _httpx
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    railway_url = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+    if not token or not railway_url:
+        logger.info("Webhook auto-register skipped: missing token or RAILWAY_PUBLIC_DOMAIN")
+        return
+    webhook_url = f"https://{railway_url}/webhook/telegram"
+    try:
+        r = _httpx.post(
+            f"https://api.telegram.org/bot{token}/setWebhook",
+            json={"url": webhook_url, "allowed_updates": ["message", "callback_query"]},
+            timeout=10,
+        )
+        data = r.json()
+        if data.get("ok"):
+            logger.info("Webhook registered: %s", webhook_url)
+        else:
+            logger.warning("Webhook registration failed: %s", data)
+    except Exception as e:
+        logger.warning("Webhook register error: %s", e)
+
+
 @app.on_event("startup")
 def startup_scheduler():
+    register_webhook()
     register_bot_commands()
     from alerts import check_and_fire_alerts
     from apscheduler.triggers.interval import IntervalTrigger
@@ -194,6 +219,16 @@ def health():
             next_job = job.next_run_time.isoformat()
     except Exception:
         pass
+    # 웹훅 상태 확인
+    webhook_url = ""
+    try:
+        import httpx as _httpx
+        token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+        if token:
+            wr = _httpx.get(f"https://api.telegram.org/bot{token}/getWebhookInfo", timeout=5)
+            webhook_url = wr.json().get("result", {}).get("url", "")
+    except Exception:
+        pass
     return {
         "status": "healthy",
         "version": "3.0.0",
@@ -202,6 +237,7 @@ def health():
         "next_briefing_utc": next_job,
         "last_briefing_date": _last_summary.get("date"),
         "uptime_check": datetime.utcnow().isoformat(),
+        "webhook_url": webhook_url,
     }
 
 
