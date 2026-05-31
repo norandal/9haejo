@@ -182,6 +182,9 @@ export default function Home() {
   const [subCount, setSubCount] = useState<number | null>(null);
   const [news, setNews] = useState<{ title: string; source: string; sentiment: string; url: string }[]>([]);
   const [adminStats, setAdminStats] = useState<{ total_price_alerts?: number; total_watchlist_items?: number } | null>(null);
+  const [historyDates, setHistoryDates] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [historyBriefing, setHistoryBriefing] = useState<{ [date: string]: string[] }>({});
   const [marketData, setMarketData] = useState<{
     indices: Record<string, { price: number; change_pct: number }>;
     fx: Record<string, { price: number; change_pct: number }>;
@@ -238,6 +241,16 @@ export default function Home() {
       .then(d => { if (d.news?.length) setNews(d.news.slice(0, 5)); })
       .catch(() => {});
 
+    // 브리핑 히스토리 날짜 목록
+    fetch(`${API}/summary/history`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.dates?.length) {
+          setHistoryDates(d.dates);
+        }
+      })
+      .catch(() => {});
+
     return () => { if (marketRef.current) clearInterval(marketRef.current); };
   }, []);
 
@@ -287,6 +300,35 @@ export default function Home() {
           </div>
         </div>
       </nav>
+
+      {/* SCROLLING TICKER BAR */}
+      {marketData && (() => {
+        const tickerItems = [
+          ...Object.entries(marketData.indices).map(([n, d]) => ({ label: n, price: d.price.toLocaleString(), pct: d.change_pct })),
+          ...Object.entries(marketData.fx).slice(0, 3).map(([n, d]) => ({ label: n, price: n.includes("KRW") ? Math.round(d.price).toLocaleString() + "w" : d.price.toFixed(2), pct: d.change_pct })),
+          { label: "F&G", price: String(marketData.fear_greed.score), pct: null },
+        ];
+        const items = [...tickerItems, ...tickerItems];
+        return (
+          <div style={{ background: "#050510", borderBottom: "1px solid #111128", overflow: "hidden", height: 34, display: "flex", alignItems: "center" }}>
+            <div style={{ display: "flex", animation: "marquee 40s linear infinite", whiteSpace: "nowrap" }}>
+              {items.map((item, i) => {
+                const up = item.pct === null ? null : item.pct >= 0;
+                const col = item.pct === null ? "#6b6b80" : up ? "#00d97e" : "#ff4466";
+                return (
+                  <span key={i} className="ticker-item" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 20px", borderRight: "1px solid #111128", height: 34, cursor: "default" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#6b6b80", fontFamily: "monospace" }}>{item.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: "#e8e8f0", fontFamily: "monospace" }}>{item.price}</span>
+                    {item.pct !== null && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: col, fontFamily: "monospace" }}>{up ? "+" : ""}{item.pct.toFixed(2)}%</span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* HERO */}
       <section style={{ padding: "80px 24px 60px", position: "relative", overflow: "hidden" }}>
@@ -397,6 +439,42 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* BRIEFING HISTORY */}
+      {historyDates.length > 0 && (
+        <section style={{ padding: "40px 24px", background: C.bg }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 3 }}>BRIEFING HISTORY</span>
+              <span style={{ fontSize: 11, color: C.muted }}>지난 7일 브리핑</span>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+              {historyDates.map(date => (
+                <button key={date} onClick={async () => {
+                  if (historyBriefing[date]) { setSelectedDate(date); return; }
+                  try {
+                    const r = await fetch(`${API}/summary/history/${date}`);
+                    const d = await r.json();
+                    if (d.tweets) {
+                      setHistoryBriefing(prev => ({ ...prev, [date]: d.tweets }));
+                      setSelectedDate(date);
+                    }
+                  } catch {}
+                }} style={{
+                  padding: "6px 14px", borderRadius: 8, border: `1px solid ${selectedDate === date ? C.green : C.border}`,
+                  background: selectedDate === date ? `${C.green}15` : C.card, color: selectedDate === date ? C.green : C.muted,
+                  fontSize: 12, fontFamily: "monospace", cursor: "pointer", fontWeight: 600, transition: "all 0.2s"
+                }}>{date}</button>
+              ))}
+            </div>
+            {selectedDate && historyBriefing[selectedDate] && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>
+                {historyBriefing[selectedDate].map((t, i) => <BriefingCard key={i} text={t} index={i} />)}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* LIVE STOCK DEMO */}
       {marketData && (
@@ -600,8 +678,11 @@ export default function Home() {
 
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 6px #00d97e} 50%{opacity:.4;box-shadow:none} }
+        @keyframes marquee { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+        @keyframes needleSpin { from{transform-origin:54px 68px;transform:rotate(-90deg)} to{transform-origin:54px 68px;transform:rotate(0deg)} }
         .light-mode { filter: invert(1) hue-rotate(180deg); }
         .light-mode img, .light-mode video, .light-mode svg { filter: invert(1) hue-rotate(180deg); }
+        .ticker-item:hover { background: rgba(255,255,255,0.05) !important; }
       `}</style>
     </div>
   );
