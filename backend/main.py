@@ -138,6 +138,8 @@ def register_bot_commands():
         {"command": "종목전망", "description": "종목 주간 전망 AI 분석 (예: /종목전망 NVDA)"},
         {"command": "랭킹", "description": "암호화폐/빅테크/코스피 시세 랭킹"},
         {"command": "내통계", "description": "내 구독/관심종목/알림 현황 통계"},
+        {"command": "한줄", "description": "오늘 시장 한 줄 요약 (공유용)"},
+        {"command": "주간", "description": "이번 주 지수 성적표"},
     ]
     try:
         r = _httpx.post(
