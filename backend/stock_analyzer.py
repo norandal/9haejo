@@ -52,7 +52,7 @@ def fetch_quote(ticker: str) -> dict | None:
                 "apikey": AV_KEY,
             }, timeout=15)
             body = r.json()
-            logger.info(f"AV GLOBAL_QUOTE: {body}")
+            logger.info("AV GLOBAL_QUOTE ok: symbol=%s", ticker)
 
             # Rate limit 메시지 감지 → 재시도
             if "Note" in body or "Information" in body:
@@ -141,27 +141,30 @@ def analyze_stock(query: str) -> str:
     direction = "상승" if quote["change_pct"] >= 0 else "하락"
     name = overview.get("name") or ticker
 
-    prompt = f"""아래 실시간 데이터를 바탕으로 한국 개인 투자자를 위한 종목 분석 리포트를 작성하세요.
-텔레그램 메시지 형식, 이모지 활용, 350자 이내, 투자 권유 아님 명시.
-
-【실시간 데이터 — {quote['latest_day']} 기준】
-- 종목: {name} ({ticker})
-- 현재가: ${quote['price']:.2f} ({arrow}{abs(quote['change_pct']):.2f}% {direction})
-- 전일 대비: ${quote['change']:+.2f}
-- 당일 고가: ${quote['high']:.2f} / 저가: ${quote['low']:.2f}
-- 거래량: {quote['volume']}
-- 시가총액: {fmt_market_cap(overview.get('market_cap'))}
-- 52주 고가: ${overview.get('52w_high', 'N/A')} / 저가: ${overview.get('52w_low', 'N/A')}
-- PER: {overview.get('pe_ratio', 'N/A')} / EPS: {overview.get('eps', 'N/A')}
-- 섹터: {overview.get('sector', 'N/A')}
-- 사업요약: {overview.get('description', '')}
-
-출력 형식:
-⚡ {name} ({ticker}) 분석
-(현재가 및 등락 설명 1~2줄)
-(52주 위치 및 밸류에이션 1줄)
-(핵심 투자 포인트 1~2줄)
-⚠️ 본 정보는 투자 권유가 아닙니다."""
+    lines = [
+        "Write a Korean stock analysis report for individual Korean investors.",
+        "Use Telegram message format, emojis, under 350 chars, note it is not investment advice.",
+        "",
+        f"=== Real-time Data ({quote['latest_day']}) ===",
+        f"Stock: {name} ({ticker})",
+        f"Price: ${quote['price']:.2f} ({arrow}{abs(quote['change_pct']):.2f}% {direction})",
+        f"Change: ${quote['change']:+.2f} vs prev close ${quote['prev_close']:.2f}",
+        f"Day range: ${quote['low']:.2f} ~ ${quote['high']:.2f}",
+        f"Volume: {quote['volume']}",
+        f"Market Cap: {fmt_market_cap(overview.get('market_cap'))}",
+        f"52W High: ${overview.get('52w_high', 'N/A')} / Low: ${overview.get('52w_low', 'N/A')}",
+        f"PER: {overview.get('pe_ratio', 'N/A')} / EPS: {overview.get('eps', 'N/A')}",
+        f"Sector: {overview.get('sector', 'N/A')}",
+        f"Description: {overview.get('description', '')}",
+        "",
+        "Output format (Korean):",
+        f"<emoji> {name} ({ticker}) analysis",
+        "(current price and change 1-2 lines)",
+        "(52W position and valuation 1 line)",
+        "(key investment points 1-2 lines)",
+        "Warning: not investment advice.",
+    ]
+    prompt = "\n".join(lines)
 
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     msg = client.messages.create(
