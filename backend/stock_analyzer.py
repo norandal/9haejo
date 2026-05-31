@@ -336,47 +336,57 @@ News headlines:
 
 
 def analyze_portfolio(tickers: list[str]) -> str:
-    """관심종목 포트폴리오 AI 진단"""
+    """관심종목 포트폴리오 AI 진단 (종목별 매수/매도/관망 + 총평)"""
     if not tickers:
         return "관심종목이 없습니다. /watchlist add NVDA 로 추가해주세요."
 
-    quotes = []
-    for t in tickers[:8]:  # max 8
-        q = fetch_quote(t)
-        if q:
-            quotes.append(q)
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    quotes = {}
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        futures = {pool.submit(fetch_quote, t): t for t in tickers[:8]}
+        for f in as_completed(futures):
+            t = futures[f]
+            try:
+                q = f.result()
+                if q:
+                    quotes[t] = q
+            except Exception:
+                pass
 
     if not quotes:
         return "종목 데이터 조회에 실패했습니다. 잠시 후 다시 시도해주세요."
 
-    lines = []
-    for q in quotes:
-        lines.append(
-            f"- {q['ticker']}: ${q['price']:.2f} ({'+' if q['change_pct']>=0 else ''}{q['change_pct']:.2f}%)"
-        )
-    portfolio_text = "\n".join(lines)
+    stock_lines = []
+    for ticker in tickers[:8]:
+        q = quotes.get(ticker)
+        if q:
+            stock_lines.append(
+                f"- {ticker}: ${q['price']:.2f} ({'+' if q['change_pct']>=0 else ''}{q['change_pct']:.2f}%)"
+            )
+    portfolio_text = "\n".join(stock_lines)
 
     prompt = f"""You are a portfolio advisor for Korean retail investors.
-Analyze this watchlist portfolio and give actionable Korean-language advice.
-Be concise, friendly, use emojis. MAX 500 chars.
-
-Watchlist holdings:
-{portfolio_text}
+For EACH stock below, provide a one-line signal in Korean: BUY(매수)/HOLD(관망)/SELL(매도) with a brief reason.
+Then give a 2-line overall portfolio comment.
+Use emojis: 🟢 buy, 🟡 hold, 🔴 sell. Be concise. Response in Korean only. Max 600 chars total.
 
 Format:
-[portfolio summary line]
-[overall performance assessment]
-[1-2 standout observations: best/worst performer, concentration risk]
-[1 actionable tip]
-[disclaimer in 1 line]"""
+[ticker] 🟢/🟡/🔴 [매수/관망/매도]: [one-line reason in Korean]
+...
+---
+총평: [2-line overall comment]
+*투자 참고용, 실제 투자 결정은 본인 판단으로*
+
+Holdings:
+{portfolio_text}"""
 
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     msg = client.messages.create(
         model="claude-haiku-4-5",
-        max_tokens=700,
+        max_tokens=800,
         messages=[{"role": "user", "content": prompt}],
     )
-    return msg.content[0].text
+    return f"<b>📋 포트폴리오 AI 진단</b>\n\n" + msg.content[0].text
 
 
 def analyze_outlook(ticker: str) -> str:

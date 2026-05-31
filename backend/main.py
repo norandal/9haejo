@@ -141,6 +141,7 @@ def register_bot_commands():
         {"command": "한줄", "description": "오늘 시장 한 줄 요약 (공유용)"},
         {"command": "주간", "description": "이번 주 지수 성적표"},
         {"command": "차트", "description": "종목 30일 스파크라인 차트 (예: /차트 NVDA)"},
+        {"command": "캘린더", "description": "FOMC/CPI/NFP 주요 경제지표 일정"},
     ]
     try:
         r = _httpx.post(
