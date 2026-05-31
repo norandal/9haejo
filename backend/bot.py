@@ -442,6 +442,46 @@ def handle_update(update: dict):
                     logger.error("news error: %s", e)
                     send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
 
+        # ── /랭킹 ────────────────────────────────────
+        elif cmd in ["/랭킹", "/ranking"]:
+            parts = text.split()
+            category = parts[1].lower() if len(parts) > 1 else "crypto"
+            RANKING_GROUPS = {
+                "crypto": [("BTC", "BTC-USD"), ("ETH", "ETH-USD"), ("SOL", "SOL-USD"),
+                           ("XRP", "XRP-USD"), ("BNB", "BNB-USD"), ("DOGE", "DOGE-USD"),
+                           ("ADA", "ADA-USD"), ("AVAX", "AVAX-USD")],
+                "bigtech": [("AAPL", "AAPL"), ("MSFT", "MSFT"), ("NVDA", "NVDA"),
+                            ("AMZN", "AMZN"), ("GOOGL", "GOOGL"), ("META", "META"),
+                            ("TSLA", "TSLA"), ("AVGO", "AVGO")],
+                "kr": [("삼성전자", "005930.KS"), ("SK하이닉스", "000660.KS"),
+                       ("LG에너지솔루션", "373220.KS"), ("POSCO홀딩스", "005490.KS"),
+                       ("삼성바이오", "207940.KS"), ("카카오", "035720.KS")],
+            }
+            group = RANKING_GROUPS.get(category, RANKING_GROUPS["crypto"])
+            emoji_map = {"crypto": "🪙", "bigtech": "🖥", "kr": "🇰🇷"}
+            label_map = {"crypto": "암호화폐", "bigtech": "빅테크", "kr": "코스피 대형주"}
+            send(chat_id, f"{emoji_map.get(category,'📊')} {label_map.get(category,'랭킹')} 시세 조회 중...")
+            try:
+                from collector import yf_quote
+                results = []
+                for label, sym in group:
+                    q = yf_quote(sym)
+                    if q:
+                        results.append((label, q["price"], q["change_pct"]))
+                results.sort(key=lambda x: x[2], reverse=True)
+                cat_label = label_map.get(category, category)
+                lines = [f"<b>{emoji_map.get(category,'📊')} {cat_label} 랭킹</b>\n"]
+                for i, (name, price, pct) in enumerate(results, 1):
+                    medal = ["", "🥇", "🥈", "🥉"].get(i, "") if i <= 3 else f"{i}."
+                    sign = "+" if pct >= 0 else ""
+                    col_arrow = "▲" if pct >= 0 else "▼"
+                    lines.append(f"{medal} {name}: {col_arrow}{sign}{pct:.2f}%")
+                lines.append(f"\n<i>/랭킹 crypto | bigtech | kr</i>")
+                send(chat_id, "\n".join(lines))
+            except Exception as e:
+                logger.error("ranking error: %s", e)
+                send(chat_id, "랭킹 조회 중 오류가 발생했어요.")
+
         # ── /매크로 ──────────────────────────────────
         elif cmd in ["/매크로", "/macro"]:
             send(chat_id, "🌐 매크로 시황 분석 중...")
