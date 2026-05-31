@@ -229,6 +229,20 @@ def admin_stats():
     }
 
 
+@app.get("/news/latest")
+def news_latest():
+    """최신 뉴스 (Alpha Vantage, 5분 캐시)"""
+    from cache import news_cache
+    from collector import av_news_sentiment
+    cached = news_cache.get("raw_news")
+    if cached:
+        return {"news": cached}
+    news = av_news_sentiment()
+    if news:
+        news_cache.set("raw_news", news)
+    return {"news": news}
+
+
 @app.get("/market/live")
 def market_live():
     """실시간 시장 데이터 (지수·환율·공포탐욕) — 프론트 위젯용"""
