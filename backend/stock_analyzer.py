@@ -42,7 +42,11 @@ def resolve_ticker(query: str) -> str:
 
 
 def fetch_quote(ticker: str) -> dict | None:
-    """Alpha Vantage GLOBAL_QUOTE — 현재가, 등락률, 거래량"""
+    """Alpha Vantage GLOBAL_QUOTE — 현재가, 등락률, 거래량 (60s TTL cached)"""
+    from cache import quote_cache
+    cached = quote_cache.get(ticker)
+    if cached is not None:
+        return cached
     import time
     for attempt in range(3):
         try:
@@ -66,7 +70,7 @@ def fetch_quote(ticker: str) -> dict | None:
             if not q or not q.get("05. price"):
                 return None
 
-            return {
+            result = {
                 "ticker": ticker,
                 "price": float(q["05. price"]),
                 "change": float(q["09. change"]),
@@ -77,6 +81,8 @@ def fetch_quote(ticker: str) -> dict | None:
                 "volume": q["06. volume"],
                 "latest_day": q["07. latest trading day"],
             }
+            quote_cache.set(ticker, result)
+            return result
         except Exception as e:
             logger.error(f"fetch_quote error: {e}")
             return None
@@ -236,3 +242,44 @@ Format:
         messages=[{"role": "user", "content": prompt}],
     )
     return msg.content[0].text
+
+
+def summarize_news() -> str:
+    """Alpha Vantage 뉴스를 Claude로 한국어 요약 (5분 캐싱)"""
+    from cache import news_cache
+    cached = news_cache.get("news_summary")
+    if cached:
+        return cached
+
+    from collector import av_news_sentiment
+    news = av_news_sentiment()
+    if not news:
+        return "뉴스 데이터를 가져올 수 없습니다. 잠시 후 다시 시도해주세요."
+
+    news_text = "\n".join([
+        f"- [{item['sentiment']}] {item['title']} ({item['source']})"
+        for item in news[:6]
+    ])
+
+    prompt = f"""You are a Korean financial news summarizer for retail investors.
+Summarize these Wall Street news headlines in Korean for Korean retail investors.
+Use emojis. Keep each summary to 1-2 sentences. Include sentiment label.
+Write in friendly, clear Korean. MAX 600 chars total.
+
+Format:
+[header with date/market context]
+[5 news items with emoji + one-line Korean summary + sentiment icon]
+[overall market mood in 1 line]
+
+News headlines:
+{news_text}"""
+
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    msg = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=700,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    result = msg.content[0].text
+    news_cache.set("news_summary", result)
+    return result

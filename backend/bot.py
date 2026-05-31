@@ -82,7 +82,8 @@ def handle_update(update: dict):
                 "/구독 — 매일 8시 자동 브리핑 구독\n"
                 "/구독취소 — 구독 해제\n"
                 "/브리핑 — 전체 AI 브리핑 (5개 메시지)\n"
-                "/시황 — 빠른 지수 현황\n\n"
+                "/시황 — 빠른 지수 현황\n"
+                "/뉴스 — 오늘의 월가 뉴스 한국어 요약\n\n"
                 "<b>종목 분석</b>\n"
                 "NVDA, 테슬라, 삼성전자 등 입력\n\n"
                 "<b>관심종목</b>\n"
@@ -167,6 +168,17 @@ def handle_update(update: dict):
                 except Exception as e:
                     logger.error("compare error: %s", e)
                     send(chat_id, "비교 분석 중 오류가 발생했어요.")
+
+        # ── /뉴스 ────────────────────────────────────
+        elif cmd in ["/뉴스", "/news"]:
+            send(chat_id, "📰 오늘의 월가 뉴스 분석 중...")
+            try:
+                from stock_analyzer import summarize_news
+                result = summarize_news()
+                send(chat_id, result)
+            except Exception as e:
+                logger.error("news error: %s", e)
+                send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
 
         # ── /sector ──────────────────────────────────
         elif cmd == "/sector":
