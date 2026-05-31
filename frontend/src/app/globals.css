@@ -2,11 +2,10 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
-
 body {
-  background: #080810;
+  background: #07070f;
   color: #e8e8f0;
-  font-family: -apple-system, 'Helvetica Neue', sans-serif;
+  font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
   overflow-x: hidden;
 }
 
@@ -14,29 +13,28 @@ body {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
-
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
 @keyframes pulseGlow {
-  0%, 100% { opacity: 1; box-shadow: 0 0 6px currentColor; }
-  50%       { opacity: 0.4; box-shadow: none; }
+  0%, 100% { box-shadow: 0 0 6px #00ff88; opacity: 1; }
+  50%       { box-shadow: none; opacity: 0.4; }
 }
-
-@keyframes float {
+@keyframes floatY {
   0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-8px); }
+  50%       { transform: translateY(-10px); }
 }
 
-.terminal-card {
-  background: #0e0e1a;
-  border: 1px solid #1e1e30;
-  box-shadow: 0 0 0 1px #00ff8812, 0 24px 64px rgba(0,0,0,0.6);
-}
+.fade-up { animation: fadeUp 0.7s ease forwards; }
+.ticker-wrap { animation: ticker 45s linear infinite; }
+.cursor { animation: blink 1s step-end infinite; }
+.float { animation: floatY 4s ease-in-out infinite; }
 
 ::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: #080810; }
-::-webkit-scrollbar-thumb { background: #14142a; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #00ff8850; }
+::-webkit-scrollbar-track { background: #07070f; }
+::-webkit-scrollbar-thumb { background: #1a1a2e; border-radius: 2px; }
