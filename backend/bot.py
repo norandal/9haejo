@@ -30,21 +30,53 @@ SECTOR_MAP = {
 }
 
 
-def send(chat_id: str, text: str):
+def send(chat_id: str, text: str, reply_markup: dict | None = None):
     try:
-        r = httpx.post(f"{BASE_URL}/sendMessage", json={
+        payload = {
             "chat_id": chat_id,
             "text": text,
             "parse_mode": "HTML",
             "disable_web_page_preview": True,
-        }, timeout=15)
+        }
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+        r = httpx.post(f"{BASE_URL}/sendMessage", json=payload, timeout=15)
         logger.info("send -> %s: %s", chat_id, r.status_code)
     except Exception as e:
         logger.error("send error: %s", e)
 
 
+def answer_callback(callback_query_id: str):
+    """Telegram callback_query에 답변 (스피너 제거)"""
+    try:
+        httpx.post(f"{BASE_URL}/answerCallbackQuery", json={"callback_query_id": callback_query_id}, timeout=5)
+    except Exception:
+        pass
+
+
+MAIN_MENU = {
+    "inline_keyboard": [[
+        {"text": "📊 시황", "callback_data": "/시황"},
+        {"text": "📰 뉴스", "callback_data": "/뉴스"},
+    ], [
+        {"text": "📈 브리핑", "callback_data": "/브리핑"},
+        {"text": "✅ 구독", "callback_data": "/구독"},
+    ]]
+}
+
+
 def handle_update(update: dict):
     try:
+        # callback_query (inline keyboard button)
+        cb = update.get("callback_query")
+        if cb:
+            answer_callback(cb["id"])
+            chat_id = str(cb["message"]["chat"]["id"])
+            text = cb.get("data", "").strip()
+            if text:
+                handle_update({"message": {"chat": {"id": chat_id}, "text": text}})
+            return
+
         msg = update.get("message") or update.get("edited_message")
         if not msg:
             return
@@ -63,16 +95,10 @@ def handle_update(update: dict):
                 "👋 <b>구해조(9haejo)</b>에 오신 걸 환영합니다!\n\n"
                 "🇺🇸 미국 증시 AI 브리핑 서비스\n"
                 "매일 오전 8시, 월가 마감 분석을 받아보세요.\n\n"
-                "<b>주요 커맨드</b>\n"
-                "/구독 — 매일 8시 브리핑 구독\n"
-                "/구독취소 — 구독 해제\n"
-                "/브리핑 — 지금 즉시 브리핑\n"
-                "/시황 — 빠른 시장 현황\n"
-                "/watchlist — 관심종목 관리\n"
-                "/help — 전체 커맨드\n\n"
                 f"📌 내 Chat ID: <code>{chat_id}</code>\n"
-                "🌐 <a href='https://9haejo.vercel.app'>구독 신청 사이트</a>"
-            ))
+                "🌐 <a href='https://9haejo.vercel.app'>구독 신청 사이트</a>\n\n"
+                "아래 버튼으로 바로 시작하세요:"
+            ), reply_markup=MAIN_MENU)
 
         # ── /help ────────────────────────────────────
         elif cmd == "/help":
@@ -135,14 +161,24 @@ def handle_update(update: dict):
         elif cmd in ["/시황", "/market"]:
             send(chat_id, "⏳ 시장 현황 조회 중...")
             try:
-                from stock_analyzer import fetch_quote
-                lines = ["<b>미국 시장 현황</b>\n"]
-                for name, sym in [("S&P500", "^GSPC"), ("NASDAQ", "^IXIC"), ("NVDA", "NVDA"), ("TSLA", "TSLA")]:
-                    q = fetch_quote(sym)
+                from collector import yf_quote, collect_fear_greed
+                lines = ["<b>📊 미국 시장 현황</b>\n"]
+                for name, sym in [("S&P500", "^GSPC"), ("NASDAQ", "^IXIC"), ("DOW", "^DJI"), ("VIX", "^VIX")]:
+                    q = yf_quote(sym)
                     if q:
                         arrow = "▲" if q["change_pct"] >= 0 else "▼"
-                        color = "+" if q["change_pct"] >= 0 else ""
-                        lines.append(f"{name}: ${q['price']:.2f} {arrow}{color}{q['change_pct']:.2f}%")
+                        sign = "+" if q["change_pct"] >= 0 else ""
+                        lines.append(f"{name}: {q['price']:,.2f} {arrow}{sign}{q['change_pct']:.2f}%")
+                lines.append("")
+                lines.append("<b>환율</b>")
+                for name, sym in [("USD/KRW", "KRW=X"), ("USD/JPY", "JPY=X")]:
+                    q = yf_quote(sym)
+                    if q:
+                        arrow = "▲" if q["change_pct"] >= 0 else "▼"
+                        sign = "+" if q["change_pct"] >= 0 else ""
+                        lines.append(f"{name}: {q['price']:,.2f} {arrow}{sign}{q['change_pct']:.2f}%")
+                fg = collect_fear_greed()
+                lines.append(f"\n<b>공포탐욕지수</b>: {fg['score']} ({fg['label_kr']})")
                 send(chat_id, "\n".join(lines))
             except Exception as e:
                 logger.error("market error: %s", e)
