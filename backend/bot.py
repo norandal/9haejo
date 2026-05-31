@@ -433,6 +433,38 @@ def handle_update(update: dict):
                 except Exception as e:
                     send(chat_id, "섹터 분석 중 오류가 발생했어요.")
 
+        # ── /상승 /하락 ──────────────────────────────────
+        elif cmd in ["/상승", "/gainers"]:
+            send(chat_id, "📈 오늘 빅테크 상승 종목 조회 중...")
+            try:
+                from collector import yf_quote, BIG_STOCKS
+                items = [(name, yf_quote(sym)) for name, sym in BIG_STOCKS.items()]
+                items = [(n, q) for n, q in items if q]
+                items.sort(key=lambda x: x[1]["change_pct"], reverse=True)
+                lines = ["<b>📈 오늘 상승 TOP 5</b>\n"]
+                for name, q in items[:5]:
+                    sign = "+" if q["change_pct"] >= 0 else ""
+                    lines.append(f"{name}: ${q['price']:,.2f} {sign}{q['change_pct']:.2f}%")
+                send(chat_id, "\n".join(lines))
+            except Exception as e:
+                logger.error("gainers error: %s", e)
+                send(chat_id, "조회 중 오류가 발생했어요.")
+
+        elif cmd in ["/하락", "/losers"]:
+            send(chat_id, "📉 오늘 빅테크 하락 종목 조회 중...")
+            try:
+                from collector import yf_quote, BIG_STOCKS
+                items = [(name, yf_quote(sym)) for name, sym in BIG_STOCKS.items()]
+                items = [(n, q) for n, q in items if q]
+                items.sort(key=lambda x: x[1]["change_pct"])
+                lines = ["<b>📉 오늘 하락 TOP 5</b>\n"]
+                for name, q in items[:5]:
+                    lines.append(f"{name}: ${q['price']:,.2f} {q['change_pct']:.2f}%")
+                send(chat_id, "\n".join(lines))
+            except Exception as e:
+                logger.error("losers error: %s", e)
+                send(chat_id, "조회 중 오류가 발생했어요.")
+
         # ── 종목 분석 (자유 텍스트) ──────────────────
         else:
             send(chat_id, f"🔍 <b>{text}</b> 분석 중... (10~20초 소요)")
@@ -516,3 +548,4 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
     logger.info("webhook recv: update_id=%s", update.get("update_id"))
     background_tasks.add_task(handle_update, update)
     return {"ok": True}
+
