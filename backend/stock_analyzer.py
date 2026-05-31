@@ -347,3 +347,43 @@ Format:
         messages=[{"role": "user", "content": prompt}],
     )
     return msg.content[0].text
+
+
+def analyze_outlook(ticker: str) -> str:
+    """단기 주간 전망 AI 분석"""
+    q = fetch_quote(ticker)
+    ov = fetch_overview(ticker)
+
+    if not q:
+        return f"{ticker} 데이터를 가져올 수 없습니다."
+
+    price_info = f"{ticker}: ${q['price']:.2f} ({'+' if q['change_pct']>=0 else ''}{q['change_pct']:.2f}%)"
+    pe_info = f"PER: {ov.get('pe_ratio','N/A')}" if ov else ""
+    sector_info = f"섹터: {ov.get('sector','N/A')}" if ov else ""
+    high52 = ov.get('52w_high', 'N/A') if ov else 'N/A'
+    low52 = ov.get('52w_low', 'N/A') if ov else 'N/A'
+
+    prompt = f"""You are a Korean stock market analyst providing a weekly outlook.
+Write a concise Korean-language weekly outlook for {ticker}.
+Be specific, mention key catalysts, risks, and price targets if relevant.
+Use emojis. MAX 450 chars.
+
+Current data:
+{price_info}
+52W High: ${high52} | 52W Low: ${low52}
+{pe_info} | {sector_info}
+
+Format:
+[ticker + current price line]
+[positioning: where in 52W range, momentum]
+[2 key catalysts to watch this week]
+[risk factor]
+[1-line verdict: buy/hold/watch with reasoning]"""
+
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    msg = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=600,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return msg.content[0].text
