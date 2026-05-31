@@ -523,17 +523,48 @@ export default function Home() {
       </section>
 
       {/* FOOTER */}
-      <footer style={{ borderTop: `1px solid ${C.border}`, padding: "32px 24px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: C.grad, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, color: "#07070f" }}>9</div>
-            <span style={{ fontWeight: 800 }}>구해조</span>
-            <span style={{ fontSize: 12, color: "#22224a" }}>KOI 2026 Spring</span>
+      <footer style={{ borderTop: `1px solid ${C.border}`, padding: "40px 24px 28px" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 24, marginBottom: 28 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: C.grad, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 15, color: "#07070f" }}>9</div>
+                <span style={{ fontWeight: 800, fontSize: 16, color: C.text }}>구해조</span>
+              </div>
+              <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, maxWidth: 260 }}>
+                미국 증시 AI 브리핑 서비스.<br />
+                Claude AI 기반, 매일 오전 8시 KST.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 40, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 2, marginBottom: 12, textTransform: "uppercase" }}>서비스</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>텔레그램 봇</a>
+                  <a href="#subscribe" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>구독하기</a>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 2, marginBottom: 12, textTransform: "uppercase" }}>기술 스택</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {["FastAPI · Railway", "Next.js · Vercel", "Claude AI · yfinance"].map(t => (
+                    <span key={t} style={{ fontSize: 13, color: C.muted }}>{t}</span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 2, marginBottom: 12, textTransform: "uppercase" }}>링크</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <a href="https://github.com/norandal/9haejo" target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>GitHub</a>
+                  <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>@goohaejo_bot</a>
+                </div>
+              </div>
+            </div>
           </div>
-          <p style={{ fontSize: 12, color: "#22224a", textAlign: "center" }}>
-            본 서비스는 투자 권유가 아닙니다. 투자 판단은 본인 책임입니다.
-          </p>
-          <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#22224a", textDecoration: "none" }}>@goohaejo_bot</a>
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <p style={{ fontSize: 11, color: "#22224a" }}>© 2026 구해조. KOI Spring.</p>
+            <p style={{ fontSize: 11, color: "#22224a" }}>본 서비스는 투자 권유가 아닙니다. 투자 판단은 본인 책임입니다.</p>
+          </div>
         </div>
       </footer>
 
