@@ -709,6 +709,42 @@ def handle_update(update: dict):
                     logger.error("outlook error: %s", e)
                     send(chat_id, "전망 분석 중 오류가 발생했어요.")
 
+        # ── /캘린더 ──────────────────────────────────────
+        elif cmd in ["/캘린더", "/calendar", "/일정"]:
+            from datetime import date, timedelta
+            today = date.today()
+            # 2026 주요 경제지표 일정 (하드코딩)
+            EVENTS = [
+                (date(2026, 6, 3), "NFP", "비농업고용 (5월)"),
+                (date(2026, 6, 5), "ISM", "ISM 서비스업 PMI"),
+                (date(2026, 6, 11), "CPI", "소비자물가지수 (5월)"),
+                (date(2026, 6, 17), "FOMC", "FOMC 회의 시작"),
+                (date(2026, 6, 18), "FOMC", "FOMC 결과 발표 + 파월 기자회견"),
+                (date(2026, 6, 26), "PCE", "PCE 물가지수 (5월)"),
+                (date(2026, 7, 2), "NFP", "비농업고용 (6월)"),
+                (date(2026, 7, 9), "FOMC", "FOMC 의사록 공개"),
+                (date(2026, 7, 10), "CPI", "소비자물가지수 (6월)"),
+                (date(2026, 7, 28), "FOMC", "FOMC 회의 시작"),
+                (date(2026, 7, 29), "FOMC", "FOMC 결과 발표"),
+                (date(2026, 7, 31), "GDP", "2Q GDP 속보치"),
+            ]
+            upcoming = [(d, tag, name) for d, tag, name in EVENTS if d >= today][:6]
+            past = [(d, tag, name) for d, tag, name in EVENTS if d < today][-2:]
+            tag_emoji = {"FOMC": "🏦", "CPI": "📊", "NFP": "👥", "PCE": "💰", "ISM": "🏭", "GDP": "📈"}
+            lines = ["<b>📅 주요 경제지표 일정</b>\n"]
+            for d, tag, name in past:
+                emoji = tag_emoji.get(tag, "📌")
+                days_ago = (today - d).days
+                lines.append(f"{emoji} <s>{d.strftime('%m/%d')} {name}</s> ({days_ago}일 전)")
+            lines.append("")
+            for d, tag, name in upcoming:
+                emoji = tag_emoji.get(tag, "📌")
+                days_left = (d - today).days
+                marker = " ← 다음!" if days_left <= 3 else ""
+                lines.append(f"{emoji} {d.strftime('%m/%d')} <b>{name}</b> ({days_left}일 후){marker}")
+            lines.append("\n<i>FOMC=금리결정 CPI=인플레 NFP=고용 PCE=물가 GDP=성장</i>")
+            send(chat_id, "\n".join(lines))
+
         # ── /상승 /하락 ──────────────────────────────────
         elif cmd in ["/상승", "/gainers", "/하락", "/losers"]:
             is_up = cmd in ["/상승", "/gainers"]
