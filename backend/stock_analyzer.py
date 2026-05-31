@@ -179,3 +179,60 @@ if __name__ == "__main__":
     for q in ["NVDA", "삼성전자", "테슬라"]:
         print(f"\n=== {q} ===")
         print(analyze_stock(q))
+
+
+def compare_stocks(query: str) -> str:
+    """두 종목 비교: /compare NVDA TSLA"""
+    parts = query.strip().split()
+    tickers = [resolve_ticker(p) for p in parts if resolve_ticker(p)]
+    tickers = list(dict.fromkeys(tickers))[:2]  # 중복 제거, 최대 2개
+
+    if len(tickers) < 2:
+        return "비교할 종목 2개를 입력해주세요.\n예시: /compare NVDA TSLA\n예시: /compare 엔비디아 테슬라"
+
+    t1, t2 = tickers[0], tickers[1]
+    q1, q2 = fetch_quote(t1), fetch_quote(t2)
+
+    if not q1 or not q2:
+        return f"데이터 조회 실패: {t1 if not q1 else t2}\n잠시 후 다시 시도해주세요."
+
+    ov1 = fetch_overview(t1)
+    ov2 = fetch_overview(t2)
+
+    def pct_bar(pct):
+        if pct is None: return "N/A"
+        arrow = "▲" if pct >= 0 else "▼"
+        return f"{arrow}{abs(pct):.2f}%"
+
+    n1 = ov1.get("name") or t1
+    n2 = ov2.get("name") or t2
+
+    prompt = f"""Compare two stocks for Korean retail investors. Write in Korean, concise, use emojis.
+MAX 350 characters.
+
+Stock A: {n1} ({t1})
+  Price: ${q1['price']:.2f} | Change: {pct_bar(q1['change_pct'])}
+  52W High: ${ov1.get('52w_high','N/A')} | Low: ${ov1.get('52w_low','N/A')}
+  PER: {ov1.get('pe_ratio','N/A')} | Market Cap: {fmt_market_cap(ov1.get('market_cap'))}
+  Sector: {ov1.get('sector','N/A')}
+
+Stock B: {n2} ({t2})
+  Price: ${q2['price']:.2f} | Change: {pct_bar(q2['change_pct'])}
+  52W High: ${ov2.get('52w_high','N/A')} | Low: ${ov2.get('52w_low','N/A')}
+  PER: {ov2.get('pe_ratio','N/A')} | Market Cap: {fmt_market_cap(ov2.get('market_cap'))}
+  Sector: {ov2.get('sector','N/A')}
+
+Format:
+[title line with both ticker names]
+[today's performance comparison]
+[valuation comparison: PER, 52W position]
+[one clear winner statement with reasoning]
+[risk disclaimer]"""
+
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    msg = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=600,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return msg.content[0].text

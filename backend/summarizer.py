@@ -1,15 +1,11 @@
 """
-AI 브리핑 요약 모듈 v2
-5-파트 구조화 브리핑: 시장요약 / 섹터 / 주목종목 / 한국영향 / 내일전망
+AI 브리핑 요약 모듈 v2.1
+토스증권 스타일 — 숫자 강조, 명확한 구조, 한국 투자자 맞춤
 """
-
-import os
-import logging
-import anthropic
+import os, logging, anthropic
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
-
 logger = logging.getLogger(__name__)
 
 
@@ -17,72 +13,123 @@ def get_client():
     return anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 
-def fmt_pct(val):
-    if val is None:
-        return "N/A"
-    arrow = "+" if val >= 0 else ""
-    return f"{arrow}{val:.2f}%"
+def arrow(pct):
+    if pct is None: return ""
+    return "+" if pct >= 0 else ""
+
+
+def fmt_pct(pct, with_arrow=True):
+    if pct is None: return "N/A"
+    a = "▲" if pct >= 0 else "▼"
+    return f"{a}{abs(pct):.2f}%"
 
 
 def summarize(data: dict) -> dict:
-    indices = data.get("indices", {})
-    sectors = data.get("sectors", {})
-    stocks  = data.get("big_stocks", {})
-    fx      = data.get("fx", {})
-    news    = data.get("news", [])
-    fg      = data.get("fear_greed", {})
-    date    = data.get("date_display", data.get("date", ""))
+    idx  = data.get("indices", {})
+    sec  = data.get("sectors", {})
+    stk  = data.get("big_stocks", {})
+    fx   = data.get("fx", {})
+    news = data.get("news", [])
+    fg   = data.get("fear_greed", {})
+    date = data.get("date_display", "")
+    wd   = data.get("weekday", "")
 
-    idx_lines = "\n".join(
-        f"  {k}: {fmt_pct(v.get('change_pct'))} (${v.get('price','N/A')})"
-        for k, v in indices.items()
-    )
-    sec_lines = "\n".join(
-        f"  {k}: {fmt_pct(v.get('change_pct'))}"
-        for k, v in sectors.items()
-    )
-    stk_lines = "\n".join(
-        f"  {k}: {fmt_pct(v.get('change_pct'))} @ ${v.get('price','N/A')}"
-        for k, v in stocks.items()
-    )
+    def row(name, d):
+        p = d.get("change_pct")
+        v = d.get("price")
+        return f"  {name}: {fmt_pct(p)} | ${v}" if v else f"  {name}: N/A"
+
+    idx_text = "\n".join(row(k, v) for k, v in idx.items())
+    sec_text = "\n".join(row(k, v) for k, v in sec.items())
+    stk_text = "\n".join(row(k, v) for k, v in stk.items())
+
     krw = fx.get("USD/KRW", {}).get("price", "N/A")
     jpy = fx.get("USD/JPY", {}).get("price", "N/A")
-    news_text = "\n".join(
-        f"  [{n.get('sentiment','?')}] {n.get('title','')[:80]}"
+    fg_score = fg.get("score", "N/A")
+    fg_label = fg.get("label_kr", fg.get("rating", "N/A"))
+
+    top_news = "\n".join(
+        f"  [{n.get('sentiment','?')[:4]}] {n.get('title','')}"
         for n in news[:5]
     )
-    fg_score = fg.get("score", "N/A")
-    fg_label = fg.get("rating", "N/A")
 
-    prompt = f"""You are a financial analyst writing a daily market briefing for Korean retail investors.
-Date: {date}
+    # 섹터 베스트/워스트
+    sec_sorted = sorted(
+        [(k, v.get("change_pct", 0) or 0) for k, v in sec.items()],
+        key=lambda x: x[1], reverse=True
+    )
+    best_sec  = sec_sorted[0] if sec_sorted else ("N/A", 0)
+    worst_sec = sec_sorted[-1] if sec_sorted else ("N/A", 0)
+
+    # 주목 종목 (가장 많이 오른/내린)
+    stk_sorted = sorted(
+        [(k, v.get("change_pct", 0) or 0) for k, v in stk.items()],
+        key=lambda x: x[1], reverse=True
+    )
+    top_gainer = stk_sorted[0] if stk_sorted else ("N/A", 0)
+    top_loser  = stk_sorted[-1] if stk_sorted else ("N/A", 0)
+
+    sp500_pct = idx.get("S&P500", {}).get("change_pct", 0) or 0
+    nasdaq_pct = idx.get("NASDAQ", {}).get("change_pct", 0) or 0
+
+    prompt = f"""You are the AI analyst for 9haejo, a Korean stock market briefing service similar to Toss Securities.
+Write EXACTLY 5 Telegram messages in Korean for {date} ({wd}) market briefing.
+Use real numbers from data. Be concise, clear, impactful.
+Separate each message with exactly: ---
 
 MARKET DATA:
 Indices:
-{idx_lines}
+{idx_text}
 
-Sectors (ETF change%):
-{sec_lines}
+Sectors:
+{sec_text}
 
-Key US Stocks:
-{stk_lines}
+Big Stocks:
+{stk_text}
 
-FX: USD/KRW={krw} won, USD/JPY={jpy}
-Fear & Greed Index: {fg_score} ({fg_label})
+FX: USD/KRW={krw}won, USD/JPY={jpy}
+Fear & Greed: {fg_score}/100 ({fg_label})
+Best sector: {best_sec[0]} {fmt_pct(best_sec[1])}
+Worst sector: {worst_sec[0]} {fmt_pct(worst_sec[1])}
+Top gainer: {top_gainer[0]} {fmt_pct(top_gainer[1])}
+Top loser: {top_loser[0]} {fmt_pct(top_loser[1])}
 
 News:
-{news_text}
+{top_news}
 
-Write EXACTLY 5 Telegram messages in Korean. Each is standalone. Use emojis and actual numbers.
-Separate each message with exactly: ---
+FORMAT RULES:
+- Start each message with its emoji category header
+- Use actual numbers, not vague language
+- Arrow symbols: use up-arrow for gains, down-arrow for losses (use actual Unicode arrows)
+- Each message MAX 300 characters
+- Write in Korean but use English for stock tickers
 
-[1/5] Market Summary: Indices, overall direction, Fear&Greed
-[2/5] Sector Analysis: Best/worst ETF sectors, implications
-[3/5] Key Stocks: Notable movers with prices and % changes
-[4/5] Korea Impact: USD/KRW effect, which Korean stocks (Samsung/Hynix/etc) are affected
-[5/5] Tomorrow Outlook: What to watch, specific actionable advice for Korean investors
+Message 1 - [1/5] Market Overview:
+Header like "미국 증시 마감 {date}"
+S&P500 and NASDAQ with exact % and direction
+Fear & Greed score with meaning
+One-line market mood summary
 
-Keep each message under 280 characters."""
+Message 2 - [2/5] Sector Spotlight:
+Best and worst sector with exact %
+Which Korean stocks are affected (Samsung/Hynix for semiconductors, etc)
+Clear implication
+
+Message 3 - [3/5] Big Tech Movers:
+Top gainer and loser with exact price and %
+Notable moves worth watching
+Any earnings or news-driven moves
+
+Message 4 - [4/5] Korea Market Preview:
+USD/KRW rate {krw}won - impact on Korean stocks
+Which KOSPI/KOSDAQ stocks will be affected tomorrow
+Concrete names: 삼성전자, SK하이닉스, 카카오, 네이버 etc
+
+Message 5 - [5/5] Tomorrow's Playbook:
+3 concrete things Korean investors should watch
+Specific tickers or sectors
+End with: "구독: @goohaejo_bot"
+"""
 
     client = get_client()
     msg = client.messages.create(
@@ -90,17 +137,19 @@ Keep each message under 280 characters."""
         max_tokens=2500,
         messages=[{"role": "user", "content": prompt}],
     )
-    raw = msg.content[0].text
+    raw    = msg.content[0].text
     tweets = [t.strip() for t in raw.split("---") if t.strip()][:5]
     while len(tweets) < 5:
-        tweets.append(f"[{len(tweets)+1}/5] 분석 중...")
+        tweets.append(f"[{len(tweets)+1}/5] 분석 준비 중...")
 
-    return {"tweets": tweets, "raw": raw, "date": date}
+    return {"tweets": tweets, "raw": raw, "date": date,
+            "meta": {"sp500": sp500_pct, "nasdaq": nasdaq_pct,
+                     "fear_greed": fg, "krw": krw}}
 
 
 if __name__ == "__main__":
     from collector import collect_all
-    data = collect_all()
-    result = summarize(data)
-    for i, t in enumerate(result["tweets"], 1):
-        print(f"\n--- {i} ---\n{t}")
+    d = collect_all()
+    r = summarize(d)
+    for i, t in enumerate(r["tweets"], 1):
+        print(f"\n{'='*40}\n[{i}/5]\n{t}")

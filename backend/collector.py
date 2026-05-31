@@ -1,158 +1,132 @@
 """
-데이터 수집 모듈 v2
-- 미국 주요 지수 / 섹터 ETF / 대형주 / 환율
-- Alpha Vantage 뉴스 감성 분석
-- Fear & Greed Index
+데이터 수집 모듈 v2.1
+- 지수/섹터: yfinance (무제한 무료)
+- 환율: yfinance
+- 뉴스/감성: Alpha Vantage NEWS_SENTIMENT
+- Fear & Greed: CNN 공개 API
+- 개별주 상세: Alpha Vantage (브리핑용 요약만)
 """
-
-import os
-import httpx
-import logging
-import time
+import os, time, logging
+import httpx, yfinance as yf
 from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
-
 logger = logging.getLogger(__name__)
 
-AV_KEY = os.getenv("ALPHA_VANTAGE_KEY", "")
+AV_KEY  = os.getenv("ALPHA_VANTAGE_KEY", "")
 AV_BASE = "https://www.alphavantage.co/query"
 
-AV_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; 9haejo/1.0)",
-}
-
-INDICES  = {"S&P500": "^GSPC", "NASDAQ": "^IXIC", "DOW": "^DJI", "VIX": "^VIX"}
-SECTORS  = {"SOXX": "SOXX", "XLK": "XLK", "XLC": "XLC", "XLY": "XLY", "XLE": "XLE", "XLF": "XLF"}
-BIG_STOCKS = {"NVDA": "NVDA", "AAPL": "AAPL", "MSFT": "MSFT", "TSLA": "TSLA",
-              "AMZN": "AMZN", "META": "META", "GOOGL": "GOOGL"}
-FX = {"USDKRW": "USD/KRW", "USDJPY": "USD/JPY"}
+INDICES = {"S&P500":"^GSPC","NASDAQ":"^IXIC","DOW":"^DJI","VIX":"^VIX","Russell2000":"^RUT"}
+SECTORS = {"반도체":"SOXX","기술IT":"XLK","통신미디어":"XLC","소비재":"XLY",
+           "에너지":"XLE","금융":"XLF","헬스케어":"XLV","유틸리티":"XLU"}
+BIG_STOCKS = {"NVDA":"NVDA","AAPL":"AAPL","MSFT":"MSFT","TSLA":"TSLA",
+              "AMZN":"AMZN","META":"META","GOOGL":"GOOGL","AVGO":"AVGO"}
+FX = {"USD/KRW":"KRW=X","USD/JPY":"JPY=X","USD/CNY":"CNY=X"}
 
 
-def av_quote(symbol: str) -> dict:
-    """Alpha Vantage GLOBAL_QUOTE"""
+def yf_quote(symbol: str) -> dict:
+    """yfinance로 현재가 + 등락률 (무료, 무제한)"""
     try:
-        r = httpx.get(AV_BASE, params={"function": "GLOBAL_QUOTE", "symbol": symbol, "apikey": AV_KEY}, timeout=12)
-        q = r.json().get("Global Quote", {})
-        if not q or not q.get("05. price"):
+        t = yf.Ticker(symbol)
+        hist = t.history(period="2d")
+        if hist.empty or len(hist) < 1:
             return {}
-        return {
-            "price": float(q["05. price"]),
-            "change_pct": float(q["10. change percent"].replace("%", "")),
-            "change": float(q["09. change"]),
-            "volume": q.get("06. volume", ""),
-            "latest_day": q.get("07. latest trading day", ""),
-        }
+        curr = float(hist["Close"].iloc[-1])
+        prev = float(hist["Close"].iloc[-2]) if len(hist) >= 2 else curr
+        pct  = (curr - prev) / prev * 100 if prev else 0
+        vol  = hist["Volume"].iloc[-1] if "Volume" in hist.columns else 0
+        return {"price": round(curr, 2), "change_pct": round(pct, 2),
+                "change": round(curr - prev, 2), "volume": int(vol)}
     except Exception as e:
-        logger.warning("av_quote %s error: %s", symbol, e)
+        logger.warning("yf_quote %s: %s", symbol, e)
         return {}
 
 
-def av_fx(from_currency: str, to_currency: str) -> dict:
-    """Alpha Vantage 환율"""
-    try:
-        r = httpx.get(AV_BASE, params={
-            "function": "CURRENCY_EXCHANGE_RATE",
-            "from_currency": from_currency,
-            "to_currency": to_currency,
-            "apikey": AV_KEY,
-        }, timeout=12)
-        d = r.json().get("Realtime Currency Exchange Rate", {})
-        if not d:
-            return {}
-        rate = float(d.get("5. Exchange Rate", 0))
-        return {"price": round(rate, 2), "change_pct": None}
-    except Exception as e:
-        logger.warning("av_fx error: %s", e)
-        return {}
+def collect_batch_yf(symbols: dict) -> dict:
+    """여러 심볼 yfinance 수집"""
+    result = {}
+    for name, sym in symbols.items():
+        result[name] = yf_quote(sym)
+    return result
 
 
-def collect_news_sentiment() -> list:
-    """Alpha Vantage NEWS_SENTIMENT — 미국 증시 관련 뉴스"""
+def av_news_sentiment() -> list:
+    """Alpha Vantage 뉴스 감성 (하루 1~2회만 호출)"""
+    if not AV_KEY:
+        return []
     try:
         r = httpx.get(AV_BASE, params={
             "function": "NEWS_SENTIMENT",
-            "topics": "financial_markets,earnings",
-            "sort": "LATEST",
-            "limit": 8,
-            "apikey": AV_KEY,
+            "topics": "financial_markets,earnings,economy_monetary",
+            "sort": "LATEST", "limit": 10, "apikey": AV_KEY,
         }, timeout=15)
         items = r.json().get("feed", [])
-        results = []
-        for item in items[:6]:
-            results.append({
-                "title": item.get("title", ""),
-                "source": item.get("source", ""),
+        news = []
+        for item in items[:8]:
+            news.append({
+                "title":     item.get("title", "")[:100],
+                "source":    item.get("source", ""),
                 "sentiment": item.get("overall_sentiment_label", "Neutral"),
-                "score": item.get("overall_sentiment_score", 0),
-                "summary": item.get("summary", "")[:200],
-                "url": item.get("url", ""),
-                "time": item.get("time_published", ""),
+                "score":     round(float(item.get("overall_sentiment_score", 0)), 3),
+                "summary":   item.get("summary", "")[:180],
+                "url":       item.get("url", ""),
             })
-        return results
+        return news
     except Exception as e:
-        logger.warning("news_sentiment error: %s", e)
+        logger.warning("av_news: %s", e)
         return []
 
 
 def collect_fear_greed() -> dict:
-    """CNN Fear & Greed Index (공개 API)"""
+    """CNN Fear & Greed Index"""
     try:
         r = httpx.get(
             "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
-            headers={"User-Agent": "Mozilla/5.0", "Referer": "https://edition.cnn.com"},
-            timeout=10,
+            headers={"User-Agent":"Mozilla/5.0","Referer":"https://edition.cnn.com"},
+            timeout=10, follow_redirects=True,
         )
-        data = r.json()
-        current = data.get("fear_and_greed", {})
-        score = current.get("score", 50)
-        rating = current.get("rating", "Neutral")
-        return {"score": round(score, 1), "rating": rating}
+        fg = r.json().get("fear_and_greed", {})
+        score  = round(float(fg.get("score", 50)), 1)
+        rating = fg.get("rating", "Neutral")
+        # 점수 -> 한국어 레이블
+        if score >= 75:   label_kr = "극단적 탐욕"
+        elif score >= 55: label_kr = "탐욕"
+        elif score >= 45: label_kr = "중립"
+        elif score >= 25: label_kr = "공포"
+        else:             label_kr = "극단적 공포"
+        return {"score": score, "rating": rating, "label_kr": label_kr}
     except Exception as e:
-        logger.warning("fear_greed error: %s", e)
-        return {"score": None, "rating": "N/A"}
-
-
-def collect_batch(symbols: dict) -> dict:
-    """여러 심볼 순차 수집 (rate limit 방지)"""
-    result = {}
-    for name, symbol in symbols.items():
-        result[name] = av_quote(symbol)
-        time.sleep(0.5)  # 분당 5회 제한 대응
-    return result
+        logger.warning("fear_greed: %s", e)
+        return {"score": 50, "rating": "Neutral", "label_kr": "중립"}
 
 
 def collect_all() -> dict:
-    logger.info("Data collection started")
+    logger.info("=== Data collection start ===")
+    now = datetime.now()
 
-    indices = collect_batch(INDICES)
-    time.sleep(1)
-    sectors = collect_batch(SECTORS)
-    time.sleep(1)
-    big_stocks = collect_batch(BIG_STOCKS)
-    time.sleep(1)
+    indices  = collect_batch_yf(INDICES)
+    sectors  = collect_batch_yf(SECTORS)
+    stocks   = collect_batch_yf(BIG_STOCKS)
+    fx       = collect_batch_yf(FX)
 
-    krw = av_fx("USD", "KRW")
-    jpy = av_fx("USD", "JPY")
-    fx = {"USD/KRW": krw, "USD/JPY": jpy}
-
-    news = collect_news_sentiment()
+    # AV는 뉴스만 사용 (1회 호출)
+    news     = av_news_sentiment()
     fear_greed = collect_fear_greed()
 
-    data = {
-        "timestamp": datetime.now().isoformat(),
-        "date": datetime.now().strftime("%Y-%m-%d"),
-        "date_display": datetime.now().strftime("%m/%d"),
-        "indices": indices,
-        "sectors": sectors,
-        "big_stocks": big_stocks,
-        "fx": fx,
-        "news": news,
-        "fear_greed": fear_greed,
+    logger.info("=== Data collection done ===")
+    return {
+        "timestamp":     now.isoformat(),
+        "date":          now.strftime("%Y-%m-%d"),
+        "date_display":  now.strftime("%-m/%-d") if os.name != "nt" else now.strftime("%m/%d"),
+        "weekday":       now.strftime("%A"),
+        "indices":       indices,
+        "sectors":       sectors,
+        "big_stocks":    stocks,
+        "fx":            fx,
+        "news":          news,
+        "fear_greed":    fear_greed,
     }
-    logger.info("Data collection complete")
-    return data
 
 
 if __name__ == "__main__":
