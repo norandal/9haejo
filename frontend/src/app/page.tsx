@@ -573,6 +573,48 @@ export default function Home() {
         </div>
       </section>
 
+      {/* COMMANDS REFERENCE */}
+      <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, padding: "60px 24px" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8, textAlign: "center" }}>COMMANDS</p>
+          <h2 style={{ fontSize: 28, fontWeight: 900, textAlign: "center", marginBottom: 8, color: C.text }}>전체 커맨드</h2>
+          <p style={{ color: C.muted, textAlign: "center", marginBottom: 36, fontSize: 14 }}>@goohaejo_bot 에서 바로 사용하세요</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 10 }}>
+            {[
+              { cmd: "/브리핑", desc: "AI 미국 증시 브리핑 (즉시)", color: C.green },
+              { cmd: "/시황", desc: "지수·환율·공포탐욕 현황", color: C.green },
+              { cmd: "/뉴스", desc: "월가 뉴스 한국어 요약", color: C.green },
+              { cmd: "/뉴스 NVDA", desc: "종목별 뉴스 요약", color: C.green },
+              { cmd: "/매크로", desc: "VIX·DXY·금리·오일·금", color: "#a78bfa" },
+              { cmd: "/상승 반도체", desc: "섹터별 상승 종목 랭킹", color: "#a78bfa" },
+              { cmd: "/하락 tech", desc: "섹터별 하락 종목 랭킹", color: "#a78bfa" },
+              { cmd: "/랭킹 crypto", desc: "암호화폐·빅테크·코스피", color: "#a78bfa" },
+              { cmd: "/종목전망 NVDA", desc: "주간 전망 AI 분석", color: "#f59e0b" },
+              { cmd: "/compare NVDA TSLA", desc: "종목 비교 분석", color: "#f59e0b" },
+              { cmd: "/환율", desc: "USD/KRW·JPY AI 전망", color: "#f59e0b" },
+              { cmd: "/sector 반도체", desc: "섹터 ETF 분석", color: "#f59e0b" },
+              { cmd: "/watchlist add NVDA", desc: "관심종목 추가·조회", color: "#3b82f6" },
+              { cmd: "/알림 NVDA 200", desc: "가격 알림 등록", color: "#3b82f6" },
+              { cmd: "/포트폴리오", desc: "관심종목 AI 진단", color: "#3b82f6" },
+              { cmd: "/내통계", desc: "내 구독·알림 현황", color: "#3b82f6" },
+              { cmd: "/구독", desc: "매일 8시 브리핑 구독", color: "#ec4899" },
+              { cmd: "/지난브리핑", desc: "어제 브리핑 다시보기", color: "#ec4899" },
+            ].map(({ cmd, desc, color }) => (
+              <div key={cmd} style={{ padding: "12px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${color}40` }}>
+                <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color, marginBottom: 4 }}>{cmd}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>{desc}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ textAlign: "center", marginTop: 28 }}>
+            <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
+              style={{ display: "inline-block", padding: "12px 28px", borderRadius: 12, background: C.grad, color: "#07070f", fontWeight: 800, fontSize: 14, textDecoration: "none" }}>
+              텔레그램에서 바로 시작하기 →
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* HOW TO */}
       <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "60px 24px" }}>
         <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
