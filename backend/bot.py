@@ -187,11 +187,23 @@ def handle_update(update: dict):
                 from summarizer import summarize
                 data = collect_all()
                 result = summarize(data)
-                for tweet in result["tweets"]:
-                    send(chat_id, tweet)
+                share_text = "구해조 AI 브리핑 - 매일 8시 미국 증시 분석"
+                share_url = "https://t.me/share/url?url=https%3A%2F%2F9haejo.vercel.app&text=" + share_text.replace(" ", "%20")
+                share_markup = {
+                    "inline_keyboard": [[
+                        {"text": "공유하기", "url": share_url},
+                        {"text": "웹에서 보기", "url": "https://9haejo.vercel.app"},
+                    ]]
+                }
+                tweets = result["tweets"]
+                for i, tweet in enumerate(tweets):
+                    if i == len(tweets) - 1:
+                        send(chat_id, tweet, reply_markup=share_markup)
+                    else:
+                        send(chat_id, tweet)
             except Exception as e:
                 logger.error("briefing error: %s", e)
-                send(chat_id, f"브리핑 생성 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.")
+                send(chat_id, "브리핑 생성 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.")
 
         # ── /시황 ────────────────────────────────────
         elif cmd in ["/시황", "/market"]:
