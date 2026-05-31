@@ -128,6 +128,14 @@ export default function Home() {
   const [subState, setSubState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [subMsg, setSubMsg] = useState("");
   const [isMobile, setIsMobile] = useState(false);
+  const [isDark, setIsDark] = useState(true);
+  const toggleTheme = () => {
+    setIsDark(p => {
+      const next = !p;
+      localStorage.setItem("theme", next ? "dark" : "light");
+      return next;
+    });
+  };
   const [briefing, setBriefing] = useState<string[]>([]);
   const [briefingLoading, setBriefingLoading] = useState(true);
   const [subCount, setSubCount] = useState<number | null>(null);
@@ -143,6 +151,8 @@ export default function Home() {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener("resize", checkMobile);
+    const saved = localStorage.getItem("theme");
+    if (saved === "light") setIsDark(false);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
@@ -195,7 +205,7 @@ export default function Home() {
   };
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.text }}>
+    <div className={isDark ? "" : "light-mode"} style={{ background: C.bg, minHeight: "100vh", color: C.text }}>
 
       {/* NAV */}
       <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(7,7,15,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${C.border}` }}>
@@ -205,9 +215,14 @@ export default function Home() {
             <span style={{ fontWeight: 800, fontSize: 16 }}>구해조</span>
             <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "#0a1f14", color: C.green, border: `1px solid ${C.green}30`, fontFamily: "monospace" }}>BETA</span>
           </div>
-          <a href="#subscribe" style={{ padding: "8px 18px", borderRadius: 10, background: C.grad, color: "#07070f", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-            무료 구독하기
-          </a>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={toggleTheme} style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 14, cursor: "pointer" }}>
+              {isDark ? "☀️" : "🌙"}
+            </button>
+            <a href="#subscribe" style={{ padding: "8px 18px", borderRadius: 10, background: C.grad, color: "#07070f", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+              무료 구독하기
+            </a>
+          </div>
         </div>
       </nav>
 
@@ -463,7 +478,11 @@ export default function Home() {
         </div>
       </footer>
 
-      <style>{`@keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 6px #00d97e} 50%{opacity:.4;box-shadow:none} }`}</style>
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 6px #00d97e} 50%{opacity:.4;box-shadow:none} }
+        .light-mode { filter: invert(1) hue-rotate(180deg); }
+        .light-mode img, .light-mode video, .light-mode svg { filter: invert(1) hue-rotate(180deg); }
+      `}</style>
     </div>
   );
 }
