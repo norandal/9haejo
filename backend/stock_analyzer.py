@@ -38,33 +38,43 @@ def resolve_ticker(query: str) -> str:
 
 
 def get_stock_data(ticker: str) -> dict:
-    """yfinance로 종목 데이터 수집"""
-    try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
-        hist = stock.history(period="5d")
+    """yfinance로 종목 데이터 수집 (429 재시도 포함)"""
+    import time
+    for attempt in range(3):
+        try:
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period="5d")
 
-        if hist.empty:
+            if hist.empty:
+                return None
+
+            curr = hist["Close"].iloc[-1]
+            prev = hist["Close"].iloc[-2] if len(hist) > 1 else curr
+            change_pct = ((curr - prev) / prev) * 100
+
+            try:
+                info = stock.info
+            except Exception:
+                info = {}
+
+            return {
+                "ticker": ticker,
+                "name": info.get("longName") or info.get("shortName", ticker),
+                "price": round(curr, 2),
+                "change_pct": round(change_pct, 2),
+                "market_cap": info.get("marketCap"),
+                "pe_ratio": info.get("trailingPE"),
+                "52w_high": info.get("fiftyTwoWeekHigh"),
+                "52w_low": info.get("fiftyTwoWeekLow"),
+                "sector": info.get("sector", "N/A"),
+                "summary": info.get("longBusinessSummary", "")[:300],
+            }
+        except Exception as e:
+            if "429" in str(e) and attempt < 2:
+                time.sleep(3)
+                continue
             return None
-
-        curr = hist["Close"].iloc[-1]
-        prev = hist["Close"].iloc[-2] if len(hist) > 1 else curr
-        change_pct = ((curr - prev) / prev) * 100
-
-        return {
-            "ticker": ticker,
-            "name": info.get("longName") or info.get("shortName", ticker),
-            "price": round(curr, 2),
-            "change_pct": round(change_pct, 2),
-            "market_cap": info.get("marketCap"),
-            "pe_ratio": info.get("trailingPE"),
-            "52w_high": info.get("fiftyTwoWeekHigh"),
-            "52w_low": info.get("fiftyTwoWeekLow"),
-            "sector": info.get("sector", "N/A"),
-            "summary": info.get("longBusinessSummary", "")[:300],
-        }
-    except Exception as e:
-        return None
+    return None
 
 
 def analyze_stock(query: str) -> str:
