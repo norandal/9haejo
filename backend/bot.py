@@ -144,10 +144,23 @@ def handle_update(update: dict):
 
         # ── /start ──────────────────────────────────
         if cmd == "/start":
+            # 즉시 시장 스냅샷 (빠른 응답)
+            try:
+                from collector import yf_quote, collect_fear_greed
+                sp = yf_quote("^GSPC")
+                nq = yf_quote("^IXIC")
+                fg = collect_fear_greed()
+                sp_str = f"S&P500 {'▲' if sp['change_pct']>=0 else '▼'}{abs(sp['change_pct']):.1f}%" if sp else ""
+                nq_str = f"NASDAQ {'▲' if nq['change_pct']>=0 else '▼'}{abs(nq['change_pct']):.1f}%" if nq else ""
+                fg_str = f"F&G {fg.get('score','?')}" if fg else ""
+                market_snapshot = f"\n\n📊 지금 시장: {sp_str} | {nq_str} | {fg_str}" if sp else ""
+            except Exception:
+                market_snapshot = ""
             send(chat_id, (
                 "👋 <b>구해조(9haejo)</b>에 오신 걸 환영합니다!\n\n"
                 "🇺🇸 미국 증시 AI 브리핑 서비스\n"
-                "매일 오전 8시, 월가 마감 분석을 받아보세요.\n\n"
+                "매일 오전 8시, 월가 마감 분석을 받아보세요."
+                f"{market_snapshot}\n\n"
                 f"📌 내 Chat ID: <code>{chat_id}</code>\n"
                 "🌐 <a href='https://9haejo.vercel.app'>구독 신청 사이트</a>\n\n"
                 "아래 버튼으로 바로 시작하세요:"
@@ -184,12 +197,36 @@ def handle_update(update: dict):
 
         # ── /브리핑 ──────────────────────────────────
         elif cmd in ["/브리핑", "/briefing"]:
-            send(chat_id, "⏳ AI가 시장을 분석 중입니다... (30초 정도 소요됩니다)")
+            # 6시간 내 캐시된 브리핑이 있으면 즉시 발송
             try:
+                from briefing_history import get_latest_briefing
+                from datetime import datetime, timezone
+                cached_date, cached_tweets = get_latest_briefing()
+                use_cache = False
+                if cached_tweets and cached_date:
+                    try:
+                        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                        if cached_date == today:
+                            use_cache = True
+                    except Exception:
+                        pass
+                if use_cache:
+                    send(chat_id, f"📋 <b>오늘 브리핑 ({cached_date})</b> — 캐시됨")
+                    result_tweets = cached_tweets
+                else:
+                    send(chat_id, "⏳ AI가 시장을 분석 중입니다... (30초 정도 소요됩니다)")
+                    from collector import collect_all
+                    from summarizer import summarize
+                    data = collect_all()
+                    result = summarize(data)
+                    result_tweets = result["tweets"]
+            except Exception:
+                send(chat_id, "⏳ AI가 시장을 분석 중입니다... (30초 정도 소요됩니다)")
                 from collector import collect_all
                 from summarizer import summarize
                 data = collect_all()
                 result = summarize(data)
+                result_tweets = result["tweets"]
                 share_text = "구해조 AI 브리핑 - 매일 8시 미국 증시 분석"
                 share_url = "https://t.me/share/url?url=https%3A%2F%2F9haejo.vercel.app&text=" + share_text.replace(" ", "%20")
                 share_markup = {
@@ -198,9 +235,8 @@ def handle_update(update: dict):
                         {"text": "웹에서 보기", "url": "https://9haejo.vercel.app"},
                     ]]
                 }
-                tweets = result["tweets"]
-                for i, tweet in enumerate(tweets):
-                    if i == len(tweets) - 1:
+                for i, tweet in enumerate(result_tweets):
+                    if i == len(result_tweets) - 1:
                         send(chat_id, tweet, reply_markup=share_markup)
                     else:
                         send(chat_id, tweet)
@@ -311,8 +347,7 @@ def handle_update(update: dict):
                     # 어제 없으면 가장 최근 것
                     date, tweets = get_latest_briefing()
                 if not tweets:
-                    send(chat_id, "아직 저장된 브리핑이 없어요.
-/브리핑 으로 지금 브리핑을 받아보세요!")
+                    send(chat_id, "아직 저장된 브리핑이 없어요.\n/브리핑 으로 지금 브리핑을 받아보세요!")
                 else:
                     send(chat_id, f"📅 <b>{date} 브리핑</b>")
                     for tweet in tweets:
@@ -327,8 +362,7 @@ def handle_update(update: dict):
             try:
                 from collector import yf_quote
                 import anthropic, os
-                lines = ["<b>💱 실시간 환율</b>
-"]
+                lines = ["<b>💱 실시간 환율</b>\n"]
                 fx_pairs = [("USD/KRW", "KRW=X"), ("USD/JPY", "JPY=X"), ("USD/CNY", "CNY=X"), ("USD/EUR", "EURUSD=X")]
                 fx_data = {}
                 for name, sym in fx_pairs:
@@ -338,8 +372,7 @@ def handle_update(update: dict):
                         sign = "+" if q["change_pct"] >= 0 else ""
                         lines.append(f"{name}: {q['price']:,.2f} {arrow}{sign}{q['change_pct']:.2f}%")
                         fx_data[name] = q
-                send(chat_id, "
-".join(lines))
+                send(chat_id, "\n".join(lines))
                 # AI 환율 전망
                 krw = fx_data.get("USD/KRW", {}).get("price", "N/A")
                 krw_pct = fx_data.get("USD/KRW", {}).get("change_pct", 0)
@@ -362,16 +395,10 @@ def handle_update(update: dict):
                 s = get_settings(chat_id)
                 wl = "켜짐" if s.get("watchlist_briefing") else "꺼짐"
                 send(chat_id, (
-                    f"<b>내 설정</b>
-
-"
-                    f"관심종목 브리핑 포함: {wl}
-
-"
-                    "<b>변경하기:</b>
-"
-                    "/설정 관심종목 켜기
-"
+                    f"<b>내 설정</b>\n\n"
+                    f"관심종목 브리핑 포함: {wl}\n\n"
+                    "<b>변경하기:</b>\n"
+                    "/설정 관심종목 켜기\n"
                     "/설정 관심종목 끄기"
                 ))
             elif len(parts) >= 3 and "관심종목" in parts[1]:
