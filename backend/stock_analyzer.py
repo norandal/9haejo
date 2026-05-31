@@ -42,30 +42,45 @@ def resolve_ticker(query: str) -> str:
 
 
 def fetch_quote(ticker: str) -> dict | None:
-    """Alpha Vantage GLOBAL_QUOTE — 현재가, 등락률, 52주 고저"""
-    try:
-        r = httpx.get(AV_BASE, params={
-            "function": "GLOBAL_QUOTE",
-            "symbol": ticker,
-            "apikey": AV_KEY,
-        }, timeout=15)
-        q = r.json().get("Global Quote", {})
-        if not q or not q.get("05. price"):
+    """Alpha Vantage GLOBAL_QUOTE — 현재가, 등락률, 거래량"""
+    import time
+    for attempt in range(3):
+        try:
+            r = httpx.get(AV_BASE, params={
+                "function": "GLOBAL_QUOTE",
+                "symbol": ticker,
+                "apikey": AV_KEY,
+            }, timeout=15)
+            body = r.json()
+            logger.info(f"AV GLOBAL_QUOTE: {body}")
+
+            # Rate limit 메시지 감지 → 재시도
+            if "Note" in body or "Information" in body:
+                logger.warning(f"AV rate limit attempt {attempt+1}")
+                if attempt < 2:
+                    time.sleep(15)
+                    continue
+                return None
+
+            q = body.get("Global Quote", {})
+            if not q or not q.get("05. price"):
+                return None
+
+            return {
+                "ticker": ticker,
+                "price": float(q["05. price"]),
+                "change": float(q["09. change"]),
+                "change_pct": float(q["10. change percent"].replace("%", "")),
+                "high": float(q["03. high"]),
+                "low": float(q["04. low"]),
+                "prev_close": float(q["08. previous close"]),
+                "volume": q["06. volume"],
+                "latest_day": q["07. latest trading day"],
+            }
+        except Exception as e:
+            logger.error(f"fetch_quote error: {e}")
             return None
-        return {
-            "ticker": ticker,
-            "price": float(q["05. price"]),
-            "change": float(q["09. change"]),
-            "change_pct": float(q["10. change percent"].replace("%", "")),
-            "high": float(q["03. high"]),
-            "low": float(q["04. low"]),
-            "prev_close": float(q["08. previous close"]),
-            "volume": q["06. volume"],
-            "latest_day": q["07. latest trading day"],
-        }
-    except Exception as e:
-        logger.error(f"fetch_quote error: {e}")
-        return None
+    return None
 
 
 def fetch_overview(ticker: str) -> dict:
