@@ -264,9 +264,39 @@ Format:
     return msg.content[0].text
 
 
-def summarize_news() -> str:
-    """Alpha Vantage 뉴스를 Claude로 한국어 요약 (5분 캐싱)"""
+def summarize_news(ticker: str = "") -> str:
+    """Alpha Vantage 뉴스를 Claude로 한국어 요약 (5분 캐싱). ticker 지정시 종목별 뉴스."""
+    import yfinance as yf
     from cache import news_cache
+
+    if ticker:
+        cache_key = f"news_{ticker}"
+        cached = news_cache.get(cache_key)
+        if cached:
+            return cached
+        # yfinance 뉴스 사용 (AV 무료 한도 절약)
+        try:
+            t = yf.Ticker(ticker)
+            raw_news = t.news or []
+            if not raw_news:
+                return f"{ticker} 관련 뉴스를 찾을 수 없습니다."
+            news_text = "\n".join([
+                f"- {item.get('content',{}).get('title', item.get('title',''))}"
+                for item in raw_news[:6]
+            ])
+            prompt = f"""Summarize these {ticker} news headlines in Korean for retail investors.
+Use emojis. 1-2 sentences each. Include buy/sell/hold implications. MAX 500 chars total.
+News:
+{news_text}"""
+            client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+            msg = client.messages.create(model="claude-haiku-4-5", max_tokens=600,
+                                          messages=[{"role": "user", "content": prompt}])
+            result = f"📰 <b>{ticker} 뉴스 요약</b>\n\n" + msg.content[0].text
+            news_cache.set(cache_key, result)
+            return result
+        except Exception as e:
+            return f"{ticker} 뉴스 조회 중 오류: {e}"
+
     cached = news_cache.get("news_summary")
     if cached:
         return cached
