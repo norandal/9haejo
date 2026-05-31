@@ -301,6 +301,39 @@ export default function Home() {
         </div>
       </section>
 
+      {/* LIVE STOCK DEMO */}
+      {marketData && (
+        <section style={{ padding: "60px 24px" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8, textAlign: "center" }}>STOCK ANALYSIS</p>
+            <h2 style={{ fontSize: 28, fontWeight: 900, textAlign: "center", marginBottom: 8, color: C.text }}>텔레그램에서 즉시 조회</h2>
+            <p style={{ color: C.muted, textAlign: "center", marginBottom: 36, fontSize: 14 }}>종목명이나 티커를 입력하면 AI 분석 리포트를 즉시 받아보세요</p>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
+              {[
+                { name: "NVIDIA", ticker: "NVDA", emoji: "🟢", desc: "AI 반도체 1위" },
+                { name: "TESLA", ticker: "TSLA", emoji: "⚡", desc: "전기차·AI 로보틱스" },
+                { name: "APPLE", ticker: "AAPL", emoji: "🍎", desc: "빅테크 시총 1위" },
+              ].map(({ name, ticker, emoji, desc }) => (
+                <div key={ticker} style={{ padding: "20px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ fontSize: 28 }}>{emoji}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 800, color: C.text, fontSize: 15 }}>{name}</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{desc}</div>
+                    <div style={{ fontFamily: "monospace", fontSize: 12, color: C.green }}>@goohaejo_bot &gt; <b>{ticker}</b></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
+                style={{ display: "inline-block", padding: "12px 28px", borderRadius: 12, background: C.grad, color: "#07070f", fontWeight: 800, fontSize: 14, textDecoration: "none" }}>
+                텔레그램에서 직접 해보기 →
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* FEATURES */}
       <section style={{ padding: "60px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
