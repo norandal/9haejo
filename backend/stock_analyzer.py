@@ -1,14 +1,19 @@
 """
 종목 분석 모듈
 회사명 또는 티커 입력 → Claude AI 분석 리포트 생성
+yfinance 429 대응: yf.download() 우선 사용, 실패 시 Claude 단독 분석
 """
 
 import os
+import time
+import logging
 import yfinance as yf
 import anthropic
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
+
+logger = logging.getLogger(__name__)
 
 # 한국어 회사명 → 티커 매핑
 KR_TO_TICKER = {
@@ -21,107 +26,112 @@ KR_TO_TICKER = {
     "엔비디아": "NVDA", "애플": "AAPL", "마이크로소프트": "MSFT",
     "테슬라": "TSLA", "아마존": "AMZN", "메타": "META",
     "알파벳": "GOOGL", "구글": "GOOGL", "넷플릭스": "NFLX",
+    "팔란티어": "PLTR", "암": "ARM", "브로드컴": "AVGO",
 }
 
+
 def resolve_ticker(query: str) -> str:
-    """쿼리에서 티커 추출"""
     q = query.strip().lower()
-    # 한국어 매핑
     for kr, ticker in KR_TO_TICKER.items():
         if kr in q:
             return ticker
-    # 대문자 티커 직접 입력 (NVDA, AAPL 등)
     upper = query.strip().upper()
-    if upper.isalpha() and len(upper) <= 5:
+    # 영문 티커 (최대 6자 — .KS 등 포함)
+    if all(c.isalpha() or c == "." for c in upper) and len(upper) <= 10:
         return upper
     return None
 
 
-def get_stock_data(ticker: str) -> dict:
-    """yfinance로 종목 데이터 수집 (429 재시도 포함)"""
-    import time
+def get_stock_data(ticker: str) -> dict | None:
+    """
+    yf.download()로 가격 데이터 수집 (429에 강함).
+    stock.info는 선택적으로 시도.
+    """
     for attempt in range(3):
         try:
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period="5d")
-
-            if hist.empty:
+            df = yf.download(ticker, period="5d", progress=False, auto_adjust=True)
+            if df.empty:
                 return None
 
-            curr = hist["Close"].iloc[-1]
-            prev = hist["Close"].iloc[-2] if len(hist) > 1 else curr
-            change_pct = ((curr - prev) / prev) * 100
+            close = df["Close"]
+            curr = float(close.iloc[-1])
+            prev = float(close.iloc[-2]) if len(close) > 1 else curr
+            change_pct = (curr - prev) / prev * 100
 
+            # info는 실패해도 괜찮음
+            info = {}
             try:
-                info = stock.info
+                info = yf.Ticker(ticker).fast_info  # fast_info는 429가 적음
+                info = {
+                    "longName": getattr(info, "name", ticker),
+                    "fiftyTwoWeekHigh": getattr(info, "fifty_two_week_high", None),
+                    "fiftyTwoWeekLow": getattr(info, "fifty_two_week_low", None),
+                }
             except Exception:
-                info = {}
+                pass
 
             return {
                 "ticker": ticker,
-                "name": info.get("longName") or info.get("shortName", ticker),
+                "name": info.get("longName") or ticker,
                 "price": round(curr, 2),
                 "change_pct": round(change_pct, 2),
-                "market_cap": info.get("marketCap"),
-                "pe_ratio": info.get("trailingPE"),
                 "52w_high": info.get("fiftyTwoWeekHigh"),
                 "52w_low": info.get("fiftyTwoWeekLow"),
-                "sector": info.get("sector", "N/A"),
-                "summary": info.get("longBusinessSummary", "")[:300],
             }
+
         except Exception as e:
-            if "429" in str(e) and attempt < 2:
-                time.sleep(3)
-                continue
-            return None
+            logger.warning(f"get_stock_data attempt {attempt+1} failed: {e}")
+            if attempt < 2:
+                time.sleep(4)
     return None
 
 
 def analyze_stock(query: str) -> str:
-    """종목 분석 리포트 생성"""
     ticker = resolve_ticker(query)
     if not ticker:
         return f"❌ '{query}'에 해당하는 종목을 찾을 수 없어요.\n\n예시: NVDA, 삼성전자, 테슬라"
 
     data = get_stock_data(ticker)
-    if not data:
-        return f"❌ {ticker} 데이터를 가져올 수 없어요. 티커를 확인해주세요."
-
-    change_arrow = "▲" if data["change_pct"] >= 0 else "▼"
-    change_color_word = "상승" if data["change_pct"] >= 0 else "하락"
-
-    # Claude로 분석
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    prompt = f"""
-아래 종목 데이터를 바탕으로 한국 개인 투자자를 위한 간결한 분석 리포트를 작성하세요.
-텔레그램 메시지 형식으로, 280자 이내로, 이모지를 활용해 가독성 있게 작성하세요.
-투자 권유가 아닌 정보 제공임을 명시하세요.
+
+    if data:
+        arrow = "▲" if data["change_pct"] >= 0 else "▼"
+        prompt = f"""한국 개인 투자자를 위한 종목 분석 리포트를 텔레그램 메시지 형식으로 작성하세요.
+이모지 활용, 300자 이내, 투자 권유 아님 명시.
 
 종목 데이터:
-- 이름: {data['name']} ({data['ticker']})
-- 현재가: {data['price']} ({change_arrow}{abs(data['change_pct'])}% {change_color_word})
+- 종목: {data['name']} ({data['ticker']})
+- 현재가: ${data['price']} ({arrow}{abs(data['change_pct']):.2f}%)
 - 52주 고가: {data['52w_high']}
 - 52주 저가: {data['52w_low']}
-- PER: {data['pe_ratio']}
-- 섹터: {data['sector']}
-- 사업요약: {data['summary']}
 
 형식:
 ⚡ [종목명] ([티커]) 분석
-(핵심 현황 2~3줄)
-(투자 포인트 1~2줄)
-⚠️ 본 정보는 투자 권유가 아닙니다.
-"""
+(현재 주가 현황 1~2줄)
+(핵심 투자 포인트 1~2줄)
+⚠️ 본 정보는 투자 권유가 아닙니다."""
+    else:
+        # 실시간 데이터 없이 Claude 지식 기반 분석
+        logger.warning(f"실시간 데이터 없음 — Claude 지식 기반 분석: {ticker}")
+        prompt = f"""한국 개인 투자자를 위해 {ticker} 종목에 대한 분석 리포트를 작성하세요.
+실시간 데이터는 없지만 알려진 정보와 최근 동향을 바탕으로 작성하세요.
+텔레그램 메시지 형식, 이모지 활용, 300자 이내, 투자 권유 아님 명시.
+
+형식:
+⚡ [종목명] ([티커]) 분석
+(회사 개요 및 최근 동향 2줄)
+(핵심 투자 포인트 1~2줄)
+⚠️ 본 정보는 투자 권유가 아닙니다. (실시간 데이터 미반영)"""
+
     msg = client.messages.create(
         model="claude-haiku-4-5",
-        max_tokens=400,
+        max_tokens=500,
         messages=[{"role": "user", "content": prompt}],
     )
     return msg.content[0].text
 
 
 if __name__ == "__main__":
-    queries = ["NVDA", "삼성전자", "테슬라"]
-    for q in queries:
+    for q in ["NVDA", "삼성전자", "테슬라"]:
         print(f"\n=== {q} ===")
         print(analyze_stock(q))
