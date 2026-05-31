@@ -64,6 +64,9 @@ MAIN_MENU = {
     ], [
         {"text": "🔔 알림 설정", "callback_data": "/알림"},
         {"text": "📋 관심종목", "callback_data": "/watchlist"},
+    ], [
+        {"text": "🌐 매크로", "callback_data": "/매크로"},
+        {"text": "🪙 랭킹", "callback_data": "/랭킹"},
     ]]
 }
 
@@ -441,6 +444,35 @@ def handle_update(update: dict):
                 except Exception as e:
                     logger.error("news error: %s", e)
                     send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
+
+        # ── /내통계 ──────────────────────────────────
+        elif cmd in ["/내통계", "/stats", "/mystats"]:
+            try:
+                from subscribers import get_all
+                from alerts import get_alerts
+                from pathlib import Path
+                import json as _json
+                subs = get_all()
+                is_sub = chat_id in subs
+                wl_path = Path(__file__).parent / "watchlists.json"
+                wl_db = _json.loads(wl_path.read_text(encoding="utf-8")) if wl_path.exists() else {}
+                watchlist = wl_db.get(chat_id, [])
+                alerts_list = get_alerts(chat_id)
+                from briefing_history import get_all_dates
+                history_dates = get_all_dates()
+                lines = [
+                    "<b>📊 내 구해조 통계</b>\n",
+                    f"구독 상태: {'✅ 구독 중' if is_sub else '❌ 미구독'}",
+                    f"관심종목: {len(watchlist)}개 ({', '.join(watchlist[:3])}{'...' if len(watchlist)>3 else ''})" if watchlist else "관심종목: 없음",
+                    f"가격 알림: {len(alerts_list)}개 활성 (최대 5개)",
+                    f"보관된 브리핑: {len(history_dates)}일치",
+                    "",
+                    "<i>더 많은 기능: /help</i>",
+                ]
+                send(chat_id, "\n".join(lines))
+            except Exception as e:
+                logger.error("mystats error: %s", e)
+                send(chat_id, "통계 조회 중 오류가 발생했어요.")
 
         # ── /랭킹 ────────────────────────────────────
         elif cmd in ["/랭킹", "/ranking"]:
