@@ -357,6 +357,31 @@ def news_latest():
     return {"news": news}
 
 
+@app.get("/stock/history/{ticker}")
+def stock_history(ticker: str, days: int = 7):
+    """종목 최근 N일 종가 히스토리 (SVG 스파크라인용, 5분 캐시)"""
+    from cache import news_cache
+    import yfinance as yf
+    ticker = ticker.upper().strip()
+    days = max(5, min(days, 30))
+    cache_key = f"hist:{ticker}:{days}"
+    cached = news_cache.get(cache_key)
+    if cached:
+        return cached
+    try:
+        t = yf.Ticker(ticker)
+        hist = t.history(period=f"{days + 3}d")
+        if hist.empty:
+            return {"error": "데이터 없음", "ticker": ticker}
+        prices = [round(float(p), 2) for p in hist["Close"].tolist()[-days:]]
+        dates = [str(d.date()) for d in hist.index.tolist()[-days:]]
+        result = {"ticker": ticker, "prices": prices, "dates": dates}
+        news_cache.set(cache_key, result)
+        return result
+    except Exception as e:
+        return {"error": str(e), "ticker": ticker}
+
+
 @app.get("/stock/quote/{ticker}")
 def stock_quote(ticker: str):
     """단일 종목 실시간 시세 + 기본 정보 (프론트 위젯용, 60초 캐시)"""
