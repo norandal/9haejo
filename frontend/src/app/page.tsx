@@ -139,6 +139,7 @@ export default function Home() {
   const [briefing, setBriefing] = useState<string[]>([]);
   const [briefingLoading, setBriefingLoading] = useState(true);
   const [subCount, setSubCount] = useState<number | null>(null);
+  const [news, setNews] = useState<{ title: string; source: string; sentiment: string; url: string }[]>([]);
   const [marketData, setMarketData] = useState<{
     indices: Record<string, { price: number; change_pct: number }>;
     fx: Record<string, { price: number; change_pct: number }>;
@@ -181,6 +182,13 @@ export default function Home() {
     };
     loadMarket();
     marketRef.current = setInterval(loadMarket, 30000);
+
+    // 뉴스
+    fetch(`${API}/news/latest`)
+      .then(r => r.json())
+      .then(d => { if (d.news?.length) setNews(d.news.slice(0, 5)); })
+      .catch(() => {});
+
     return () => { if (marketRef.current) clearInterval(marketRef.current); };
   }, []);
 
@@ -363,6 +371,30 @@ export default function Home() {
                 style={{ display: "inline-block", padding: "12px 28px", borderRadius: 12, background: C.grad, color: "#07070f", fontWeight: 800, fontSize: 14, textDecoration: "none" }}>
                 텔레그램에서 직접 해보기 →
               </a>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* NEWS SECTION */}
+      {news.length > 0 && (
+        <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "60px 24px" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8 }}>WALL STREET NEWS</p>
+            <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8, color: C.text }}>오늘의 월가 뉴스</h2>
+            <p style={{ color: C.muted, marginBottom: 28, fontSize: 14 }}>Alpha Vantage 뉴스 감성 분석</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {news.map((n, i) => {
+                const sentColor = n.sentiment === "Bullish" || n.sentiment === "Somewhat-Bullish" ? C.green : n.sentiment === "Bearish" || n.sentiment === "Somewhat-Bearish" ? C.red : C.muted;
+                const sentLabel = n.sentiment === "Bullish" ? "긍정" : n.sentiment === "Somewhat-Bullish" ? "다소긍정" : n.sentiment === "Bearish" ? "부정" : n.sentiment === "Somewhat-Bearish" ? "다소부정" : "중립";
+                return (
+                  <a key={i} href={n.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, textDecoration: "none" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 4, background: `${sentColor}20`, color: sentColor, whiteSpace: "nowrap" }}>{sentLabel}</span>
+                    <span style={{ fontSize: 13, color: C.text, flex: 1, fontWeight: 500 }}>{n.title}</span>
+                    <span style={{ fontSize: 11, color: C.muted, whiteSpace: "nowrap" }}>{n.source}</span>
+                  </a>
+                );
+              })}
             </div>
           </div>
         </section>
