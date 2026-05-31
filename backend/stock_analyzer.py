@@ -42,6 +42,11 @@ KR_TO_TICKER = {
     # 미국 기타
     "코인베이스": "COIN", "우버": "UBER", "에어비앤비": "ABNB",
     "버크셔해서웨이": "BRK-B", "워렌버핏": "BRK-B",
+    # 암호화폐
+    "비트코인": "BTC-USD", "bitcoin": "BTC-USD", "btc": "BTC-USD",
+    "이더리움": "ETH-USD", "ethereum": "ETH-USD", "eth": "ETH-USD",
+    "솔라나": "SOL-USD", "xrp": "XRP-USD", "리플": "XRP-USD",
+    "도지코인": "DOGE-USD", "도지": "DOGE-USD",
 }
 
 
