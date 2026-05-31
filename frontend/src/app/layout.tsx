@@ -40,6 +40,13 @@ export const metadata: Metadata = {
     images: ["https://9haejo.vercel.app/og-image.png"],
   },
   robots: { index: true, follow: true },
+  manifest: "/manifest.json",
+  themeColor: "#00d97e",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "구해조",
+  },
 };
 
 export default function RootLayout({

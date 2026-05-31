@@ -96,8 +96,43 @@ def run_summary_job():
 _scheduler = BackgroundScheduler(timezone=pytz.utc)
 
 
+def register_bot_commands():
+    """Telegram setMyCommands -- 봇 커맨드 자동완성 등록"""
+    import httpx as _httpx
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        return
+    commands = [
+        {"command": "start", "description": "시작 및 안내"},
+        {"command": "help", "description": "전체 커맨드 목록"},
+        {"command": "브리핑", "description": "즉시 AI 브리핑 (30초)"},
+        {"command": "시황", "description": "미국+한국 시장 현황"},
+        {"command": "뉴스", "description": "오늘의 월가 뉴스 요약"},
+        {"command": "환율", "description": "주요 환율 및 AI 전망"},
+        {"command": "상승", "description": "오늘 빅테크 상위 종목"},
+        {"command": "하락", "description": "오늘 빅테크 하위 종목"},
+        {"command": "watchlist", "description": "관심종목 현황"},
+        {"command": "포트폴리오", "description": "관심종목 AI 진단"},
+        {"command": "알림", "description": "가격 알림 관리"},
+        {"command": "설정", "description": "개인 설정"},
+        {"command": "구독", "description": "매일 8시 브리핑 구독"},
+        {"command": "구독취소", "description": "구독 해제"},
+        {"command": "지난브리핑", "description": "어제 브리핑 다시보기"},
+    ]
+    try:
+        r = _httpx.post(
+            f"https://api.telegram.org/bot{token}/setMyCommands",
+            json={"commands": commands},
+            timeout=10,
+        )
+        logger.info("setMyCommands: %s", r.json())
+    except Exception as e:
+        logger.warning("setMyCommands failed: %s", e)
+
+
 @app.on_event("startup")
 def startup_scheduler():
+    register_bot_commands()
     from alerts import check_and_fire_alerts
     from apscheduler.triggers.interval import IntervalTrigger
     # KST 08:00 = UTC 23:00
