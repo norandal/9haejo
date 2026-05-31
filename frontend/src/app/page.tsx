@@ -205,6 +205,64 @@ function MiniSparkline({ prices, color }: { prices: number[]; color: string }) {
   );
 }
 
+const TAG_COLORS: Record<string, string> = {
+  FOMC: "#3b82f6",
+  CPI: "#f59e0b",
+  NFP: "#00d97e",
+  PCE: "#a78bfa",
+  GDP: "#ec4899",
+  ISM: "#06b6d4",
+};
+
+function EconomicCalendar() {
+  const [events, setEvents] = useState<{ date: string; tag: string; name: string; days_left: number; is_past: boolean }[]>([]);
+  useEffect(() => {
+    fetch(`${API}/calendar/upcoming`)
+      .then(r => r.json())
+      .then(d => { if (d.events) setEvents(d.events); })
+      .catch(() => {});
+  }, []);
+  if (!events.length) return null;
+  const upcoming = events.filter(e => !e.is_past).slice(0, 6);
+  return (
+    <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, padding: "40px 24px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+          <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 3 }}>ECONOMIC CALENDAR</span>
+          <span style={{ fontSize: 11, color: C.muted }}>주요 경제지표 일정</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
+          {upcoming.map((ev) => {
+            const color = TAG_COLORS[ev.tag] || C.muted;
+            const isImminent = ev.days_left <= 3;
+            return (
+              <div key={ev.date + ev.tag} style={{
+                padding: "14px 18px", borderRadius: 12, background: C.card,
+                border: `1px solid ${isImminent ? color + "50" : C.border}`,
+                borderLeft: `3px solid ${color}`,
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+              }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 4, background: color + "20", color }}>{ev.tag}</span>
+                    {isImminent && <span style={{ fontSize: 10, color, fontWeight: 700 }}>D-{ev.days_left}</span>}
+                  </div>
+                  <div style={{ fontSize: 13, color: C.text, fontWeight: 600 }}>{ev.name}</div>
+                  <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", marginTop: 2 }}>{ev.date}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: isImminent ? color : C.muted }}>{ev.days_left}일</div>
+                  <div style={{ fontSize: 10, color: C.muted }}>후</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const POPULAR_TICKERS = ["NVDA", "TSLA", "AAPL", "MSFT", "AMZN", "META", "GOOGL", "AVGO", "BTC-USD", "ETH-USD"];
 
 function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
@@ -667,6 +725,9 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* ECONOMIC CALENDAR */}
+      <EconomicCalendar />
 
       {/* STOCK SEARCH WIDGET */}
       <StockSearchWidget isMobile={isMobile} />

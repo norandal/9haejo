@@ -142,6 +142,7 @@ def register_bot_commands():
         {"command": "주간", "description": "이번 주 지수 성적표"},
         {"command": "차트", "description": "종목 30일 스파크라인 차트 (예: /차트 NVDA)"},
         {"command": "캘린더", "description": "FOMC/CPI/NFP 주요 경제지표 일정"},
+        {"command": "비교", "description": "두 종목 AI 비교 (예: /비교 NVDA TSLA)"},
     ]
     try:
         r = _httpx.post(
@@ -381,6 +382,37 @@ def stock_history(ticker: str, days: int = 7):
         return result
     except Exception as e:
         return {"error": str(e), "ticker": ticker}
+
+
+@app.get("/calendar/upcoming")
+def calendar_upcoming():
+    """주요 경제지표 일정 (프론트 캘린더 위젯용)"""
+    from datetime import date
+    today = date.today()
+    EVENTS = [
+        ("2026-06-03", "NFP", "비농업고용 (5월)"),
+        ("2026-06-05", "ISM", "ISM 서비스업 PMI"),
+        ("2026-06-11", "CPI", "소비자물가지수 (5월)"),
+        ("2026-06-17", "FOMC", "FOMC 회의 시작"),
+        ("2026-06-18", "FOMC", "FOMC 결과 발표"),
+        ("2026-06-26", "PCE", "PCE 물가지수 (5월)"),
+        ("2026-07-02", "NFP", "비농업고용 (6월)"),
+        ("2026-07-10", "CPI", "소비자물가지수 (6월)"),
+        ("2026-07-29", "FOMC", "FOMC 결과 발표"),
+        ("2026-07-31", "GDP", "2Q GDP 속보치"),
+    ]
+    events_out = []
+    for date_str, tag, name in EVENTS:
+        d = date.fromisoformat(date_str)
+        days_left = (d - today).days
+        events_out.append({
+            "date": date_str,
+            "tag": tag,
+            "name": name,
+            "days_left": days_left,
+            "is_past": days_left < 0,
+        })
+    return {"events": events_out, "today": today.isoformat()}
 
 
 @app.get("/stock/quote/{ticker}")

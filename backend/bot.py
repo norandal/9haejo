@@ -510,8 +510,8 @@ def handle_update(update: dict):
             parts = text.split()
             _handle_watchlist(chat_id, parts)
 
-        # ── /compare ─────────────────────────────────
-        elif cmd == "/compare":
+        # ── /compare /비교 ───────────────────────────────
+        elif cmd in ["/compare", "/비교"]:
             parts = text.split()
             if len(parts) < 3:
                 send(chat_id, "두 종목을 입력해주세요.\n예: /compare NVDA TSLA\n예: /compare 엔비디아 테슬라")
@@ -710,7 +710,7 @@ def handle_update(update: dict):
                     send(chat_id, "전망 분석 중 오류가 발생했어요.")
 
         # ── /캘린더 ──────────────────────────────────────
-        elif cmd in ["/캘린더", "/calendar", "/일정"]:
+        elif cmd in ["/캘린더", "/calendar", "/일정", "/캘", "/schedule"]:
             from datetime import date, timedelta
             today = date.today()
             # 2026 주요 경제지표 일정 (하드코딩)
