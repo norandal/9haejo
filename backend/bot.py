@@ -115,7 +115,8 @@ def handle_update(update: dict):
                 "<b>관심종목</b>\n"
                 "/watchlist — 관심종목 현황\n"
                 "/watchlist add NVDA — 추가\n"
-                "/watchlist remove NVDA — 삭제\n\n"
+                "/watchlist remove NVDA — 삭제\n"
+                "/포트폴리오 — 관심종목 AI 진단\n\n"
                 "<b>섹터</b>\n"
                 "/sector 반도체 — 섹터 분석\n"
                 "(반도체/기술/에너지/금융/소비/통신)"
@@ -184,6 +185,25 @@ def handle_update(update: dict):
                 logger.error("market error: %s", e)
                 send(chat_id, "시장 데이터 조회 중 오류가 발생했어요.")
 
+        # ── /포트폴리오 ──────────────────────────────────
+        elif cmd in ["/포트폴리오", "/portfolio"]:
+            try:
+                import json
+                from pathlib import Path
+                wl_path = Path(__file__).parent / "watchlists.json"
+                wl_db = json.loads(wl_path.read_text(encoding="utf-8")) if wl_path.exists() else {}
+                user_wl = wl_db.get(chat_id, [])
+                if not user_wl:
+                    send(chat_id, "관심종목이 없어요.\n/watchlist add NVDA 로 먼저 추가해주세요!")
+                else:
+                    send(chat_id, f"🧠 {len(user_wl)}개 종목 포트폴리오 AI 진단 중...")
+                    from stock_analyzer import analyze_portfolio
+                    result = analyze_portfolio(user_wl)
+                    send(chat_id, result)
+            except Exception as e:
+                logger.error("portfolio error: %s", e)
+                send(chat_id, "포트폴리오 분석 중 오류가 발생했어요.")
+
         # ── /watchlist ────────────────────────────────
         elif cmd == "/watchlist":
             parts = text.split()
@@ -234,14 +254,20 @@ def handle_update(update: dict):
 
         # ── 종목 분석 (자유 텍스트) ──────────────────
         else:
-            send(chat_id, f"🔍 <b>{text}</b> 분석 중...")
+            send(chat_id, f"🔍 <b>{text}</b> 분석 중... (10~20초 소요)")
             try:
                 from stock_analyzer import analyze_stock
                 result = analyze_stock(text)
                 send(chat_id, result)
             except Exception as e:
                 logger.error("stock analysis error: %s", e)
-                send(chat_id, "분석 중 오류가 발생했어요. 티커(예: NVDA)나 회사명(예: 삼성전자)을 입력해주세요.")
+                send(chat_id, (
+                    "❌ 분석 중 오류가 발생했어요.\n\n"
+                    "<b>사용 가능한 입력 예시:</b>\n"
+                    "티커: <code>NVDA</code> <code>TSLA</code> <code>AAPL</code>\n"
+                    "한국어: <code>엔비디아</code> <code>테슬라</code> <code>삼성전자</code>\n\n"
+                    "잠시 후 다시 시도해주세요."
+                ))
 
     except Exception as e:
         logger.error("handle_update error: %s", e)
