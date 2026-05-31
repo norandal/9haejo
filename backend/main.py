@@ -12,9 +12,9 @@ from summarizer import summarize
 from telegram_poster import post_summary
 from bot import router as bot_router
 
-app.include_router(bot_router)
-
 app = FastAPI(title="9haejo API", version="0.1.0")
+
+app.include_router(bot_router)
 
 app.add_middleware(
     CORSMiddleware,
