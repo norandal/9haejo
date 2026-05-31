@@ -6,9 +6,10 @@ import json
 import logging
 from pathlib import Path
 from datetime import datetime, timedelta
+from data_dir import DATA_DIR
 
 logger = logging.getLogger(__name__)
-HISTORY_PATH = Path(__file__).parent / "briefing_history.json"
+HISTORY_PATH = DATA_DIR / "briefing_history.json"
 MAX_DAYS = 7
 
 

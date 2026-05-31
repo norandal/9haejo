@@ -21,6 +21,9 @@ except Exception:
 logging.basicConfig(level=logging.INFO, handlers=[_handler], force=True)
 logger = logging.getLogger(__name__)
 
+from data_dir import DATA_DIR
+_WL_PATH = DATA_DIR / "watchlists.json"
+
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
@@ -444,7 +447,7 @@ def handle_update(update: dict):
             try:
                 import json
                 from pathlib import Path
-                wl_path = Path(__file__).parent / "watchlists.json"
+                wl_path = _WL_PATH
                 wl_db = json.loads(wl_path.read_text(encoding="utf-8")) if wl_path.exists() else {}
                 user_wl = wl_db.get(chat_id, [])
                 if not user_wl:
@@ -512,7 +515,7 @@ def handle_update(update: dict):
                 import json as _json
                 subs = get_all()
                 is_sub = chat_id in subs
-                wl_path = Path(__file__).parent / "watchlists.json"
+                wl_path = _WL_PATH
                 wl_db = _json.loads(wl_path.read_text(encoding="utf-8")) if wl_path.exists() else {}
                 watchlist = wl_db.get(chat_id, [])
                 alerts_list = get_alerts(chat_id)
@@ -745,7 +748,7 @@ def _handle_watchlist(chat_id: str, parts: list):
     import json
     from pathlib import Path
 
-    wl_path = Path(__file__).parent / "watchlists.json"
+    wl_path = _WL_PATH
     try:
         wl_db = json.loads(wl_path.read_text(encoding="utf-8")) if wl_path.exists() else {}
     except Exception:

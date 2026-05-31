@@ -5,9 +5,10 @@ user_settings.json에 사용자별 선호도 저장
 import json
 import logging
 from pathlib import Path
+from data_dir import DATA_DIR
 
 logger = logging.getLogger(__name__)
-SETTINGS_PATH = Path(__file__).parent / "user_settings.json"
+SETTINGS_PATH = DATA_DIR / "user_settings.json"
 
 DEFAULTS = {
     "timezone": "Asia/Seoul",
