@@ -25,22 +25,26 @@ BIG_STOCKS = {"NVDA":"NVDA","AAPL":"AAPL","MSFT":"MSFT","TSLA":"TSLA",
 FX = {"USD/KRW":"KRW=X","USD/JPY":"JPY=X","USD/CNY":"CNY=X"}
 
 
-def yf_quote(symbol: str) -> dict:
-    """yfinance로 현재가 + 등락률 (무료, 무제한)"""
-    try:
-        t = yf.Ticker(symbol)
-        hist = t.history(period="2d")
-        if hist.empty or len(hist) < 1:
-            return {}
-        curr = float(hist["Close"].iloc[-1])
-        prev = float(hist["Close"].iloc[-2]) if len(hist) >= 2 else curr
-        pct  = (curr - prev) / prev * 100 if prev else 0
-        vol  = hist["Volume"].iloc[-1] if "Volume" in hist.columns else 0
-        return {"price": round(curr, 2), "change_pct": round(pct, 2),
-                "change": round(curr - prev, 2), "volume": int(vol)}
-    except Exception as e:
-        logger.warning("yf_quote %s: %s", symbol, e)
-        return {}
+def yf_quote(symbol: str, retries: int = 3) -> dict:
+    """yfinance로 현재가 + 등락률 (무료, 무제한). 실패시 최대 retries회 재시도."""
+    import time
+    for attempt in range(retries):
+        try:
+            t = yf.Ticker(symbol)
+            hist = t.history(period="2d")
+            if hist.empty or len(hist) < 1:
+                return {}
+            curr = float(hist["Close"].iloc[-1])
+            prev = float(hist["Close"].iloc[-2]) if len(hist) >= 2 else curr
+            pct  = (curr - prev) / prev * 100 if prev else 0
+            vol  = hist["Volume"].iloc[-1] if "Volume" in hist.columns else 0
+            return {"price": round(curr, 2), "change_pct": round(pct, 2),
+                    "change": round(curr - prev, 2), "volume": int(vol)}
+        except Exception as e:
+            logger.warning("yf_quote %s attempt %d/%d: %s", symbol, attempt+1, retries, e)
+            if attempt < retries - 1:
+                time.sleep(1.5 * (attempt + 1))
+    return {}
 
 
 def collect_batch_yf(symbols: dict) -> dict:
