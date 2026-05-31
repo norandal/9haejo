@@ -152,6 +152,22 @@ def handle_update(update: dict):
             parts = text.split()
             _handle_watchlist(chat_id, parts)
 
+        # ── /compare ─────────────────────────────────
+        elif cmd == "/compare":
+            parts = text.split()
+            if len(parts) < 3:
+                send(chat_id, "두 종목을 입력해주세요.\n예: /compare NVDA TSLA\n예: /compare 엔비디아 테슬라")
+            else:
+                query = " ".join(parts[1:])
+                send(chat_id, f"⚖️ {query} 비교 분석 중...")
+                try:
+                    from stock_analyzer import compare_stocks
+                    result = compare_stocks(query)
+                    send(chat_id, result)
+                except Exception as e:
+                    logger.error("compare error: %s", e)
+                    send(chat_id, "비교 분석 중 오류가 발생했어요.")
+
         # ── /sector ──────────────────────────────────
         elif cmd == "/sector":
             parts = text.split()
