@@ -542,6 +542,7 @@ def weekly_summary() -> str:
     result = "\n".join(lines)
     quote_cache.set("weekly_summary", result)
     return result
+<<<<<<< HEAD
 
 
 def sparkline(prices: list) -> str:
@@ -586,3 +587,5 @@ def get_price_chart(ticker: str, days: int = 30) -> str:
         return result
     except Exception as e:
         return f"{ticker} 차트 조회 실패: {e}"
+=======
+>>>>>>> betterforwhat/main
