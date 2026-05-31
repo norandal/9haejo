@@ -417,3 +417,65 @@ Format:
         messages=[{"role": "user", "content": prompt}],
     )
     return msg.content[0].text
+
+
+def analyze_macro() -> str:
+    """매크로 시황: 금리/DXY/오일/VIX/금 + AI 한국어 해설"""
+    import yfinance as yf
+    from cache import quote_cache
+
+    cached = quote_cache.get("macro_analysis")
+    if cached:
+        return cached
+
+    MACRO_TICKERS = {
+        "VIX": "^VIX",
+        "DXY": "DX-Y.NYB",
+        "US10Y": "^TNX",
+        "US2Y": "^IRX",
+        "OIL(WTI)": "CL=F",
+        "GOLD": "GC=F",
+        "TLT(Bond)": "TLT",
+        "BTC": "BTC-USD",
+    }
+    rows = []
+    for label, sym in MACRO_TICKERS.items():
+        try:
+            t = yf.Ticker(sym)
+            hist = t.history(period="2d", interval="1d")
+            if len(hist) >= 2:
+                prev = hist["Close"].iloc[-2]
+                cur  = hist["Close"].iloc[-1]
+                pct  = (cur - prev) / prev * 100
+                sign = "+" if pct >= 0 else ""
+                rows.append(f"{label}: {cur:.2f} ({sign}{pct:.2f}%)")
+            elif len(hist) == 1:
+                rows.append(f"{label}: {hist['Close'].iloc[-1]:.2f}")
+        except Exception:
+            pass
+
+    data_text = "\n".join(rows) if rows else "No data"
+    prompt = f"""You are a macro analyst briefing Korean retail investors.
+Interpret these macro indicators and explain what they mean for Korean stock investors (KOSPI/KOSDAQ, Samsung, SK Hynix, etc).
+Write ONLY in Korean. Use emojis. Be specific and actionable. MAX 600 chars.
+
+Format:
+Line 1: Bold header "매크로 시황 {__import__('datetime').date.today()}"
+Lines 2-4: Key observations (VIX fear level, dollar strength impact on KRW, oil impact on inflation)
+Line 5: One concrete Korean stock action item
+
+Data:
+{data_text}"""
+
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    msg = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=700,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    header = "<b>🌐 매크로 시황</b>\n\n"
+    data_block = "\n".join(f"  {r}" for r in rows) + "\n\n"
+    ai_text = msg.content[0].text
+    result = header + "<code>" + "\n".join(rows) + "</code>\n\n" + ai_text
+    quote_cache.set("macro_analysis", result)
+    return result
