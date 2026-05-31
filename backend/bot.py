@@ -433,6 +433,23 @@ def handle_update(update: dict):
                 except Exception as e:
                     send(chat_id, "섹터 분석 중 오류가 발생했어요.")
 
+        # ── /종목전망 ─────────────────────────────────────
+        elif cmd in ["/종목전망", "/outlook"]:
+            parts = text.split()
+            if len(parts) < 2:
+                send(chat_id, "사용법: /종목전망 NVDA\n예: /종목전망 삼성전자")
+            else:
+                query = " ".join(parts[1:])
+                from stock_analyzer import resolve_ticker, analyze_outlook
+                ticker = resolve_ticker(query) or query.upper()
+                send(chat_id, f"🔭 {ticker} 주간 전망 분석 중...")
+                try:
+                    result = analyze_outlook(ticker)
+                    send(chat_id, result)
+                except Exception as e:
+                    logger.error("outlook error: %s", e)
+                    send(chat_id, "전망 분석 중 오류가 발생했어요.")
+
         # ── /상승 /하락 ──────────────────────────────────
         elif cmd in ["/상승", "/gainers"]:
             send(chat_id, "📈 오늘 빅테크 상승 종목 조회 중...")
