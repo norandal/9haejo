@@ -166,6 +166,37 @@ def handle_update(update: dict):
                 "아래 버튼으로 바로 시작하세요:"
             ), reply_markup=MAIN_MENU)
 
+        # ── /도움말 (키워드 검색) ────────────────────
+        elif cmd in ["/도움말"]:
+            parts = text.split()
+            keyword = " ".join(parts[1:]).lower() if len(parts) > 1 else ""
+            KEYWORD_MAP = {
+                "환율": ["/환율 — 주요 환율 및 AI 전망", "/매크로 — DXY 달러지수 포함"],
+                "주식": ["/종목명 입력 — 즉시 AI 분석", "/compare A B — 두 종목 비교", "/종목전망 NVDA — 주간 전망"],
+                "뉴스": ["/뉴스 — 월가 뉴스 요약", "/뉴스 NVDA — 종목 뉴스"],
+                "알림": ["/알림 NVDA 200 — 상승 알림", "/알림 TSLA 150 하락 — 하락 알림", "/알림 삭제 NVDA"],
+                "구독": ["/구독 — 매일 8시 브리핑 구독", "/구독취소 — 해제"],
+                "관심": ["/watchlist — 조회", "/watchlist add NVDA — 추가", "/포트폴리오 — AI 진단"],
+                "암호화폐": ["/랭킹 crypto — BTC/ETH/SOL 랭킹"],
+                "crypto": ["/랭킹 crypto — BTC/ETH/SOL 랭킹"],
+                "섹터": ["/sector 반도체 — ETF 분석", "/상승 반도체 — 섹터별 상위 종목"],
+                "매크로": ["/매크로 — VIX/DXY/금리/오일/금"],
+                "금리": ["/매크로 — US2Y/US10Y 포함"],
+                "시황": ["/시황 — 미국+한국 시장 현황", "/한줄 — 오늘 한줄 요약"],
+                "통계": ["/내통계 — 내 구독/알림/관심종목"],
+            }
+            if keyword:
+                matches = []
+                for kw, cmds in KEYWORD_MAP.items():
+                    if kw in keyword or keyword in kw:
+                        matches.extend(cmds)
+                if matches:
+                    send(chat_id, f"🔍 <b>'{keyword}' 관련 커맨드</b>\n\n" + "\n".join(set(matches)))
+                else:
+                    send(chat_id, f"'{keyword}'에 대한 커맨드를 찾지 못했어요.\n/help 로 전체 목록을 확인하세요.")
+            else:
+                send(chat_id, "📖 <b>구해조 커맨드</b>\n\n카테고리를 선택해 자세한 사용법을 확인하세요:", reply_markup=HELP_MENU)
+
         # ── /help ────────────────────────────────────
         elif cmd == "/help":
             send(chat_id,
