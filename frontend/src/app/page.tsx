@@ -189,6 +189,7 @@ export default function Home() {
     indices: Record<string, { price: number; change_pct: number }>;
     fx: Record<string, { price: number; change_pct: number }>;
     fear_greed: { score: number; label_kr: string };
+    big_stocks?: Record<string, { price: number; change_pct: number }>;
   } | null>(null);
   const marketRef = useRef<NodeJS.Timeout | null>(null);
   const animatedCount = useCountUp(subCount);
@@ -483,21 +484,34 @@ export default function Home() {
             <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8, textAlign: "center" }}>STOCK ANALYSIS</p>
             <h2 style={{ fontSize: 28, fontWeight: 900, textAlign: "center", marginBottom: 8, color: C.text }}>텔레그램에서 즉시 조회</h2>
             <p style={{ color: C.muted, textAlign: "center", marginBottom: 36, fontSize: 14 }}>종목명이나 티커를 입력하면 AI 분석 리포트를 즉시 받아보세요</p>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: 12, marginBottom: 24 }}>
               {[
-                { name: "NVIDIA", ticker: "NVDA", emoji: "🟢", desc: "AI 반도체 1위" },
-                { name: "TESLA", ticker: "TSLA", emoji: "⚡", desc: "전기차·AI 로보틱스" },
-                { name: "APPLE", ticker: "AAPL", emoji: "🍎", desc: "빅테크 시총 1위" },
-              ].map(({ name, ticker, emoji, desc }) => (
-                <div key={ticker} style={{ padding: "20px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 16 }}>
-                  <div style={{ fontSize: 28 }}>{emoji}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 800, color: C.text, fontSize: 15 }}>{name}</div>
-                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{desc}</div>
-                    <div style={{ fontFamily: "monospace", fontSize: 12, color: C.green }}>@goohaejo_bot &gt; <b>{ticker}</b></div>
+                { name: "NVIDIA", ticker: "NVDA", emoji: "🟢", desc: "AI 반도체" },
+                { name: "TESLA", ticker: "TSLA", emoji: "⚡", desc: "전기차" },
+                { name: "APPLE", ticker: "AAPL", emoji: "🍎", desc: "빅테크" },
+                { name: "MSFT", ticker: "MSFT", emoji: "🪟", desc: "클라우드" },
+                { name: "AMAZON", ticker: "AMZN", emoji: "📦", desc: "이커머스·AI" },
+                { name: "META", ticker: "META", emoji: "👁", desc: "소셜·VR" },
+              ].map(({ name, ticker, emoji, desc }) => {
+                const liveData = marketData?.big_stocks?.[ticker];
+                const up = liveData ? liveData.change_pct >= 0 : null;
+                return (
+                  <div key={ticker} style={{ padding: "16px", borderRadius: 14, background: C.card, border: `1px solid ${up === null ? C.border : up ? `${C.green}30` : `${C.red}20`}`, position: "relative", overflow: "hidden" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                      <div style={{ fontSize: 22 }}>{emoji}</div>
+                      {liveData && (
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontSize: 14, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>${liveData.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: up ? C.green : C.red }}>{up ? "+" : ""}{liveData.change_pct.toFixed(2)}%</div>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontWeight: 800, color: C.text, fontSize: 13 }}>{ticker}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{desc}</div>
+                    <div style={{ fontFamily: "monospace", fontSize: 10, color: `${C.green}80`, marginTop: 4 }}>@goohaejo_bot &gt; {ticker}</div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div style={{ textAlign: "center" }}>
               <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"

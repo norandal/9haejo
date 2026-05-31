@@ -136,6 +136,7 @@ def register_bot_commands():
         {"command": "지난브리핑", "description": "어제 브리핑 다시보기"},
         {"command": "매크로", "description": "금리/DXY/오일/VIX 매크로 시황"},
         {"command": "종목전망", "description": "종목 주간 전망 AI 분석 (예: /종목전망 NVDA)"},
+        {"command": "랭킹", "description": "암호화폐/빅테크/코스피 시세 랭킹"},
     ]
     try:
         r = _httpx.post(
@@ -318,7 +319,7 @@ def news_latest():
 
 @app.get("/market/live")
 def market_live():
-    """실시간 시장 데이터 (지수·환율·공포탐욕) — 프론트 위젯용"""
+    """실시간 시장 데이터 (지수·환율·공포탐욕·빅테크) -- 프론트 위젯용"""
     from collector import yf_quote, collect_fear_greed
     indices = {
         "S&P500": yf_quote("^GSPC"),
@@ -330,5 +331,13 @@ def market_live():
         "USD/KRW": yf_quote("KRW=X"),
         "USD/JPY": yf_quote("JPY=X"),
     }
+    big_stocks = {
+        "NVDA": yf_quote("NVDA"),
+        "TSLA": yf_quote("TSLA"),
+        "AAPL": yf_quote("AAPL"),
+        "MSFT": yf_quote("MSFT"),
+        "AMZN": yf_quote("AMZN"),
+        "META": yf_quote("META"),
+    }
     fear_greed = collect_fear_greed()
-    return {"indices": indices, "fx": fx, "fear_greed": fear_greed}
+    return {"indices": indices, "fx": fx, "fear_greed": fear_greed, "big_stocks": big_stocks}
