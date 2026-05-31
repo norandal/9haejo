@@ -44,6 +44,24 @@ function StatCard({ value, label, sub }: { value: string; label: string; sub?: s
   );
 }
 
+function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold: 0.1 }
+    );
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={ref} style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(24px)", transition: `opacity 0.5s ease ${delay}ms, transform 0.5s ease ${delay}ms` }}>
+      {children}
+    </div>
+  );
+}
+
 function BriefingCard({ text, index }: { text: string; index: number }) {
   const labels = ["시장 요약", "섹터 분석", "주목 종목", "한국 영향", "내일 전망"];
   const colors = [C.green, "#a78bfa", "#f59e0b", "#3b82f6", "#ec4899"];
@@ -414,11 +432,13 @@ export default function Home() {
               { icon: "⚡", title: "빠른 시황", desc: "/시황 커맨드로 현재 주요 지수와 빅테크 현황을 즉시 확인.", color: "#ec4899" },
               { icon: "📊", title: "섹터 분석", desc: "/sector 반도체 처럼 섹터별 흐름을 한국어로 쉽게 받아보세요.", color: "#06b6d4" },
             ].map((f, i) => (
-              <div key={i} style={{ padding: "24px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, borderTop: `2px solid ${f.color}30` }}>
-                <div style={{ fontSize: 28, marginBottom: 12 }}>{f.icon}</div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 8 }}>{f.title}</h3>
-                <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>{f.desc}</p>
-              </div>
+              <FadeIn key={i} delay={i * 80}>
+                <div style={{ padding: "24px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, borderTop: `2px solid ${f.color}30` }}>
+                  <div style={{ fontSize: 28, marginBottom: 12 }}>{f.icon}</div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 8 }}>{f.title}</h3>
+                  <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>{f.desc}</p>
+                </div>
+              </FadeIn>
             ))}
           </div>
         </div>
