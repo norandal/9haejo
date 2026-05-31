@@ -140,6 +140,7 @@ def register_bot_commands():
         {"command": "내통계", "description": "내 구독/관심종목/알림 현황 통계"},
         {"command": "한줄", "description": "오늘 시장 한 줄 요약 (공유용)"},
         {"command": "주간", "description": "이번 주 지수 성적표"},
+        {"command": "차트", "description": "종목 30일 스파크라인 차트 (예: /차트 NVDA)"},
     ]
     try:
         r = _httpx.post(
