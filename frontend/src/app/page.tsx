@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const API = "https://outstanding-upliftment-production-5b02.up.railway.app";
 
@@ -39,6 +39,62 @@ function BriefingCard({ text, index }: { text: string; index: number }) {
   );
 }
 
+function FearGauge({ score, label }: { score: number; label: string }) {
+  const pct = Math.max(0, Math.min(100, score));
+  const angle = -90 + (pct / 100) * 180;
+  const r = 54;
+  const cx = 70; const cy = 70;
+  const rad = (deg: number) => (deg * Math.PI) / 180;
+  const needleX = cx + r * Math.cos(rad(angle - 90));
+  const needleY = cy + r * Math.sin(rad(angle - 90));
+  const zones = [
+    { color: "#ff4466", end: 25 },
+    { color: "#f59e0b", end: 45 },
+    { color: "#6b6b80", end: 55 },
+    { color: "#00b88a", end: 75 },
+    { color: "#00d97e", end: 100 },
+  ];
+  const arcPath = (startPct: number, endPct: number) => {
+    const startAngle = -180 + (startPct / 100) * 180;
+    const endAngle = -180 + (endPct / 100) * 180;
+    const x1 = cx + r * Math.cos(rad(startAngle));
+    const y1 = cy + r * Math.sin(rad(startAngle));
+    const x2 = cx + r * Math.cos(rad(endAngle));
+    const y2 = cy + r * Math.sin(rad(endAngle));
+    return `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;
+  };
+  let prev = 0;
+  return (
+    <div style={{ textAlign: "center" }}>
+      <svg width={140} height={80} viewBox="0 0 140 80">
+        {zones.map((z) => {
+          const p = arcPath(prev, z.end);
+          prev = z.end;
+          return <path key={z.end} d={p} fill="none" stroke={z.color} strokeWidth={10} strokeLinecap="round" opacity={0.25} />;
+        })}
+        <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke="#e8e8f0" strokeWidth={2.5} strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={4} fill="#e8e8f0" />
+        <text x={cx} y={cy + 18} textAnchor="middle" fill="#e8e8f0" fontSize="14" fontWeight="900">{score}</text>
+      </svg>
+      <div style={{ fontSize: 12, color: score >= 75 ? "#00d97e" : score >= 55 ? "#00b88a" : score >= 45 ? "#6b6b80" : score >= 25 ? "#f59e0b" : "#ff4466", fontWeight: 700 }}>{label}</div>
+    </div>
+  );
+}
+
+function IndexTicker({ name, data }: { name: string; data: { price: number; change_pct: number } | null }) {
+  if (!data) return null;
+  const up = data.change_pct >= 0;
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 10, background: "#08081a", border: "1px solid #1a1a2e" }}>
+      <span style={{ fontSize: 13, fontWeight: 700, color: "#e8e8f0" }}>{name}</span>
+      <div style={{ textAlign: "right" }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: "#e8e8f0" }}>{data.price.toLocaleString()}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: up ? "#00d97e" : "#ff4466" }}>{up ? "+" : ""}{data.change_pct.toFixed(2)}%</div>
+      </div>
+    </div>
+  );
+}
+
 function SkeletonCard() {
   return (
     <div style={{ padding: "20px", borderRadius: 14, background: C.card, border: `1px solid ${C.border}` }}>
@@ -56,6 +112,12 @@ export default function Home() {
   const [briefing, setBriefing] = useState<string[]>([]);
   const [briefingLoading, setBriefingLoading] = useState(true);
   const [subCount, setSubCount] = useState<number | null>(null);
+  const [marketData, setMarketData] = useState<{
+    indices: Record<string, { price: number; change_pct: number }>;
+    fx: Record<string, { price: number; change_pct: number }>;
+    fear_greed: { score: number; label_kr: string };
+  } | null>(null);
+  const marketRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // 브리핑 미리보기
@@ -72,6 +134,17 @@ export default function Home() {
       .then(r => r.json())
       .then(d => setSubCount(d.count))
       .catch(() => {});
+
+    // 실시간 시장 데이터 (30초마다 갱신)
+    const loadMarket = () => {
+      fetch(`${API}/market/live`)
+        .then(r => r.json())
+        .then(d => setMarketData(d))
+        .catch(() => {});
+    };
+    loadMarket();
+    marketRef.current = setInterval(loadMarket, 30000);
+    return () => { if (marketRef.current) clearInterval(marketRef.current); };
   }, []);
 
   const handleSubscribe = async (e: React.FormEvent) => {
@@ -153,6 +226,51 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* LIVE MARKET WIDGET */}
+      {marketData && (
+        <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, padding: "40px 24px" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.green, display: "inline-block", animation: "pulse 2s infinite" }} />
+              <span style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3 }}>LIVE MARKET</span>
+              <span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>30초마다 갱신</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+              {/* 지수 */}
+              <div style={{ padding: "20px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}` }}>
+                <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 14 }}>US INDICES</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {Object.entries(marketData.indices).map(([name, d]) => (
+                    <IndexTicker key={name} name={name} data={d} />
+                  ))}
+                </div>
+              </div>
+              {/* 환율 */}
+              <div style={{ padding: "20px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}` }}>
+                <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 14 }}>FX RATES</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {Object.entries(marketData.fx).map(([name, d]) => (
+                    <IndexTicker key={name} name={name} data={d} />
+                  ))}
+                </div>
+                <div style={{ marginTop: 16, padding: "12px", borderRadius: 10, background: "#08081a", border: "1px solid #1a1a2e" }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>USD/KRW</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: C.text }}>
+                    {marketData.fx["USD/KRW"]?.price ? `${Math.round(marketData.fx["USD/KRW"].price).toLocaleString()}원` : "-"}
+                  </div>
+                </div>
+              </div>
+              {/* 공포탐욕 */}
+              <div style={{ padding: "20px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 14, alignSelf: "flex-start" }}>FEAR & GREED</p>
+                <FearGauge score={marketData.fear_greed.score} label={marketData.fear_greed.label_kr} />
+                <p style={{ fontSize: 11, color: C.muted, marginTop: 12, textAlign: "center" }}>CNN Fear & Greed Index</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* TODAY'S BRIEFING */}
       <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "60px 24px" }}>
