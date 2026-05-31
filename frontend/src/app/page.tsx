@@ -16,6 +16,29 @@ const C = {
   grad: "linear-gradient(135deg,#00d97e 0%,#3b82f6 100%)",
 };
 
+function useMarketSession() {
+  const [session, setSession] = useState({ label: "", color: "#6b6b80", nyTime: "" });
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      const ny = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const h = ny.getHours(), m = ny.getMinutes(), d = ny.getDay();
+      const t = h * 60 + m;
+      const nyStr = ny.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" });
+      let label = "장 마감", color = "#6b6b80";
+      if (d === 0 || d === 6) { label = "주말 휴장"; color = "#6b6b80"; }
+      else if (t >= 240 && t < 570) { label = "Pre-Market"; color = "#f59e0b"; }
+      else if (t >= 570 && t < 960) { label = "정규장 운영중"; color = "#00d97e"; }
+      else if (t >= 960 && t < 1080) { label = "After-Hours"; color = "#3b82f6"; }
+      setSession({ label, color, nyTime: nyStr + " ET" });
+    };
+    update();
+    const id = setInterval(update, 30000);
+    return () => clearInterval(id);
+  }, []);
+  return session;
+}
+
 function useCountUp(target: number | null, duration = 1200) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
@@ -166,6 +189,7 @@ export default function Home() {
   } | null>(null);
   const marketRef = useRef<NodeJS.Timeout | null>(null);
   const animatedCount = useCountUp(subCount);
+  const marketSession = useMarketSession();
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -247,6 +271,11 @@ export default function Home() {
             <div style={{ width: 32, height: 32, borderRadius: 8, background: C.grad, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 15, color: "#07070f" }}>9</div>
             <span style={{ fontWeight: 800, fontSize: 16 }}>구해조</span>
             <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "#0a1f14", color: C.green, border: `1px solid ${C.green}30`, fontFamily: "monospace" }}>BETA</span>
+            {marketSession.label && (
+              <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: `${marketSession.color}15`, color: marketSession.color, border: `1px solid ${marketSession.color}30`, fontFamily: "monospace" }}>
+                {marketSession.label}
+              </span>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button onClick={toggleTheme} style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 14, cursor: "pointer" }}>
@@ -310,6 +339,7 @@ export default function Home() {
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.green, display: "inline-block", animation: "pulse 2s infinite" }} />
               <span style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3 }}>LIVE MARKET</span>
               <span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>30초마다 갱신</span>
+              {marketSession.nyTime && <span style={{ fontSize: 11, color: marketSession.color, marginLeft: 8, fontFamily: "monospace" }}>{marketSession.nyTime} · {marketSession.label}</span>}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 16 }}>
               {/* 지수 */}
