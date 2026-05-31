@@ -109,3 +109,21 @@ def preview_summary():
     data = collect_all()
     result = summarize(data)
     return {"date": data["date"], "tweets": result["tweets"], "fear_greed": data.get("fear_greed")}
+
+
+@app.get("/market/live")
+def market_live():
+    """실시간 시장 데이터 (지수·환율·공포탐욕) — 프론트 위젯용"""
+    from collector import yf_quote, collect_fear_greed
+    indices = {
+        "S&P500": yf_quote("^GSPC"),
+        "NASDAQ": yf_quote("^IXIC"),
+        "DOW": yf_quote("^DJI"),
+        "VIX": yf_quote("^VIX"),
+    }
+    fx = {
+        "USD/KRW": yf_quote("KRW=X"),
+        "USD/JPY": yf_quote("JPY=X"),
+    }
+    fear_greed = collect_fear_greed()
+    return {"indices": indices, "fx": fx, "fear_greed": fear_greed}
