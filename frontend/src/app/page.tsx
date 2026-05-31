@@ -824,6 +824,28 @@ export default function Home() {
         </div>
       </section>
 
+      {/* TRUST BADGES */}
+      <section style={{ padding: "40px 24px", background: C.bg, borderTop: `1px solid ${C.border}` }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 3, marginBottom: 20, textAlign: "center" }}>POWERED BY</p>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
+            {[
+              { name: "Claude AI", desc: "AI 분석 엔진", emoji: "🤖", color: "#c77dff" },
+              { name: "Railway", desc: "백엔드 인프라", emoji: "🚂", color: "#7c3aed" },
+              { name: "Vercel", desc: "프론트엔드", emoji: "▲", color: "#e8e8f0" },
+              { name: "yfinance", desc: "실시간 시세", emoji: "📈", color: "#00d97e" },
+              { name: "Telegram Bot", desc: "메시지 채널", emoji: "✈️", color: "#3b82f6" },
+            ].map(({ name, desc, emoji, color }) => (
+              <div key={name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <div style={{ fontSize: 28 }}>{emoji}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color }}>{name}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>{desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* HOW TO */}
       <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "60px 24px" }}>
         <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
