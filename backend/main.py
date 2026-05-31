@@ -59,10 +59,26 @@ def run_summary_job():
     except Exception:
         wl_db = {}
 
+    share_text = "구해조 AI 브리핑 - 매일 8시 미국 증시 분석"
+    share_url = f"https://t.me/share/url?url=https%3A%2F%2F9haejo.vercel.app&text={share_text.replace(' ', '%20')}"
+    share_markup = {
+        "inline_keyboard": [[
+            {"text": "🔗 친구에게 공유", "url": share_url},
+            {"text": "🌐 웹에서 보기", "url": "https://9haejo.vercel.app"},
+        ], [
+            {"text": "📊 지금 시황", "callback_data": "/시황"},
+            {"text": "⚡ 종목 분석", "callback_data": "__help_stock"},
+        ]]
+    }
+
     for chat_id in subscribers:
-        # 브리핑 5개 메시지 전송
-        for tweet in result["tweets"]:
-            tg_send(chat_id, tweet)
+        # 브리핑 5개 메시지 전송 (마지막 메시지에 공유 버튼 추가)
+        tweets = result["tweets"]
+        for i, tweet in enumerate(tweets):
+            if i == len(tweets) - 1:
+                tg_send(chat_id, tweet, reply_markup=share_markup)
+            else:
+                tg_send(chat_id, tweet)
         # 관심종목 현황 추가 전송
         user_wl = wl_db.get(chat_id, [])
         if user_wl:
