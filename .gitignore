@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# env files
+.env
+.env.local
+backend/.env
+frontend/.env.local
+
+# node
+node_modules/
+frontend/.next/
